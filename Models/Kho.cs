@@ -3,20 +3,19 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TKS.Models
 {
-    [Table("tbl_DM_NCC")]
-    public class NhaCungCap
+    [Table("tbl_DM_Kho")]
+    public class Kho 
     {
         [Key]
-        public int Id { get; set; }
+        public int Kho_Id { get; set; }
+        
         [Required]
         [RegularExpression("^[a-zA-Z0-9]+$", ErrorMessage = "Chỉ được chứa chữ cái và số.")]
 
-        public string Ma_NCC { get; set; }
+        public string Ten_Kho { get; set; }
         [Required]
         [RegularExpression("^[a-zA-Z0-9]+$", ErrorMessage = "Chỉ được chứa chữ cái và số.")]
 
-        public string Ten_NCC { get; set; }
-        public string? GhiChu { get; set; }
-
+        public string Ghi_Chu { get; set; }
     }
 }

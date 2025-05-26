@@ -1,0 +1,217 @@
+﻿@page "/khouser-login"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@inject IKhoUserService KhoUserService
+@inject IKhoService KhoService
+@inject NavigationManager Navigation
+
+<div class="container-fluid mt-3">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-center text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-circle me-2"></i>
+                        Đăng nhập hệ thống
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            @errorMessage
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>
+                            @successMessage
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-person me-1"></i>
+                            Mã đăng nhập <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" @bind="MaDangNhap" 
+                        placeholder="Nhập mã đăng nhập" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-building me-1"></i>
+                            Chọn kho <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" @bind="SelectedKhoId">
+                            <option value="">-- Chọn kho --</option>
+                            @if (danhSachKho != null)
+                            {
+                                @foreach (var kho in danhSachKho)
+                                {
+                                    <option value="@kho.Kho_Id">@kho.Ten_Kho</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="button" class="btn btn-primary btn-lg" @onclick="DangNhap" disabled="@IsLoading">
+                            @if (IsLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Đang xử lý...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-box-arrow-in-right me-2"></i>
+                                <span>Đăng nhập</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+                <div class="card-footer text-muted text-center">
+                    <small>
+                        <i class="bi bi-info-circle me-1"></i>
+                        Vui lòng nhập đầy đủ thông tin để đăng nhập
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Hiển thị thông tin đăng nhập thành công *@
+    @if (currentUser != null)
+    {
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-center text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Đăng nhập thành công
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-sm-5 fw-bold">Mã đăng nhập:</div>
+                            <div class="col-sm-7">@currentUser.Ma_Dang_Nhap</div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-sm-5 fw-bold">Kho làm việc:</div>
+                            <div class="col-sm-7">
+                                @{
+                                    var selectedKho = danhSachKho?.FirstOrDefault(k => k.Kho_Id == currentUser.Kho_Id);
+                                }
+                                @(selectedKho?.Ten_Kho ?? "N/A")
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center">
+                        <button class="btn btn-outline-danger me-2" @onclick="DangXuat">
+                            <i class="bi bi-box-arrow-right me-1"></i>
+                            Đăng xuất
+                        </button>
+                        <button class="btn btn-outline-primary" @onclick="GoToHome">
+                            <i class="bi bi-house me-1"></i>
+                            Về trang chủ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string MaDangNhap { get; set; } = "";
+    private string SelectedKhoId { get; set; } = "";
+    private List<Kho> danhSachKho { get; set; } = new();
+    private bool IsLoading { get; set; } = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private KhoUser? currentUser = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDanhSachKho();
+    }
+
+    private async Task LoadDanhSachKho()
+    {
+        try
+        {
+            danhSachKho = await KhoService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải danh sách kho: {ex.Message}";
+        }
+    }
+
+    private async Task DangNhap()
+    {
+        try
+        {
+            IsLoading = true;
+            errorMessage = "";
+            successMessage = "";
+
+            // Kiểm tra dữ liệu nhập
+            if (string.IsNullOrWhiteSpace(MaDangNhap))
+            {
+                errorMessage = "Vui lòng nhập mã đăng nhập";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedKhoId) || !int.TryParse(SelectedKhoId, out int khoId))
+            {
+                errorMessage = "Vui lòng chọn kho";
+                return;
+            }
+
+            // Thực hiện đăng nhập
+            currentUser = await KhoUserService.LoginAsync(MaDangNhap.Trim(), khoId);
+
+            if (currentUser == null)
+            {
+                errorMessage = "Mã đăng nhập hoặc kho không đúng. Vui lòng kiểm tra lại.";
+                return;
+            }
+
+            successMessage = "Đăng nhập thành công!";
+            
+            // Reset form
+            MaDangNhap = "";
+            SelectedKhoId = "";
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi đăng nhập: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void DangXuat()
+    {
+        currentUser = null;
+        errorMessage = "";
+        successMessage = "";
+        MaDangNhap = "";
+        SelectedKhoId = "";
+    }
+
+    private void GoToHome()
+    {
+        Navigation.NavigateTo("/");
+    }
+} 

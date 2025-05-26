@@ -1,0 +1,336 @@
+@page "/khouser"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@inject IKhoUserService KhoUserService
+@inject IKhoService KhoService
+
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h3>
+                <i class="bi bi-people me-2"></i>
+                Quản lý người dùng kho
+            </h3>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Form thêm/sửa -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">@(IsEditing ? "Cập nhật người dùng" : "Thêm người dùng mới")</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Mã đăng nhập <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="MaDangNhap" 
+                               placeholder="Nhập mã đăng nhập (chỉ chữ và số)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Chọn kho <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="SelectedKhoId">
+                            <option value="">-- Chọn kho --</option>
+                            @if (danhSachKho != null)
+                            {
+                                @foreach (var kho in danhSachKho)
+                                {
+                                    <option value="@kho.Kho_Id">@kho.Ten_Kho</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-primary" @onclick="SaveKhoUser">
+                            @(IsEditing ? "Cập nhật" : "Lưu")
+                        </button>
+                        @if (IsEditing)
+                        {
+                            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CancelEdit">
+                                Hủy
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">Danh sách người dùng kho</h5>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải...</p>
+                        </div>
+                    }
+                    else if (Items == null || !Items.Any())
+                    {
+                        <div class="alert alert-info">
+                            Chưa có người dùng kho nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Mã đăng nhập</th>
+                                        <th>Kho</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        <tr>
+                                            <td>@item.Id</td>
+                                            <td>@item.Ma_Dang_Nhap</td>
+                                            <td>
+                                                @{
+                                                    var kho = danhSachKho?.FirstOrDefault(k => k.Kho_Id == item.Kho_Id);
+                                                }
+                                                @(kho?.Ten_Kho ?? "N/A")
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item)">
+                                                    Xóa
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Xác nhận xóa</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc muốn xóa người dùng "@currentDeleteItem?.Ma_Dang_Nhap"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Hủy</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<KhoUser> Items { get; set; } = new();
+    private List<Kho> danhSachKho { get; set; } = new();
+    private string MaDangNhap { get; set; } = "";
+    private string SelectedKhoId { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    private bool IsEditing { get; set; } = false;
+    private int? EditingId { get; set; }
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    // Xác nhận xóa
+    private bool showDeleteConfirm = false;
+    private KhoUser? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadDanhSachKho();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await KhoUserService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDanhSachKho()
+    {
+        try
+        {
+            danhSachKho = await KhoService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải danh sách kho: {ex.Message}";
+        }
+    }
+
+    private async Task SaveKhoUser()
+    {
+        var trimmedMa = MaDangNhap.Trim();
+
+        try
+        {
+            // Kiểm tra dữ liệu
+            if (string.IsNullOrWhiteSpace(trimmedMa))
+            {
+                errorMessage = "Mã đăng nhập không được để trống";
+                successMessage = "";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedKhoId) || !int.TryParse(SelectedKhoId, out int khoId))
+            {
+                errorMessage = "Vui lòng chọn kho";
+                successMessage = "";
+                return;
+            }
+
+            var khoUser = new KhoUser
+            {
+                Ma_Dang_Nhap = trimmedMa,
+                Kho_Id = khoId
+            };
+
+            if (IsEditing && EditingId.HasValue)
+            {
+                khoUser.Id = EditingId.Value;
+                await KhoUserService.UpdateAsync(khoUser);
+                successMessage = "Cập nhật người dùng kho thành công";
+            }
+            else
+            {
+                await KhoUserService.AddAsync(khoUser);
+                successMessage = "Thêm người dùng kho thành công";
+            }
+
+            errorMessage = "";
+
+            // Reset form
+            MaDangNhap = "";
+            SelectedKhoId = "";
+            IsEditing = false;
+            EditingId = null;
+
+            // Tải lại danh sách
+            await LoadData();
+
+            // Tự động ẩn thông báo sau 3 giây
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = "Mã đăng nhập đã tồn tại";
+            successMessage = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+            successMessage = "";
+        }
+    }
+
+    private void EditItem(KhoUser item)
+    {
+        MaDangNhap = item.Ma_Dang_Nhap;
+        SelectedKhoId = item.Kho_Id.ToString();
+        IsEditing = true;
+        EditingId = item.Id;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void CancelEdit()
+    {
+        MaDangNhap = "";
+        SelectedKhoId = "";
+        IsEditing = false;
+        EditingId = null;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void ConfirmDelete(KhoUser item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                await KhoUserService.DeleteAsync(currentDeleteItem.Id);
+                successMessage = "Xóa người dùng kho thành công";
+                errorMessage = "";
+                
+                // Tự động ẩn thông báo sau 3 giây
+                await Task.Delay(3000);
+                successMessage = "";
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Lỗi khi xóa: {ex.Message}";
+                successMessage = "";
+            }
+            finally
+            {
+                // Luôn đóng modal xác nhận và làm mới dữ liệu
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+} 

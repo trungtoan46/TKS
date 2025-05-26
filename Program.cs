@@ -1,13 +1,28 @@
 using TKS.Components;
-using Microsoft.EntityFrameworkCore; // Add this using directive for 'UseSqlServer'
+using Microsoft.EntityFrameworkCore;
+using TKS.Services.Interfaces;
+using TKS.Services.Implementations;
+using TKS.Services;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
 builder.Services.AddDbContext<TKS.Data.AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))); // Ensure 'Microsoft.EntityFrameworkCore.SqlServer' package is installed
+options.UseMySql(
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DefaultConnection")
+   )));
+
+builder.Services.AddScoped<IDonViTinhService, TKS.Services.DonViTinhService>();
+builder.Services.AddScoped<ILoaiSanPhamService, TKS.Services.LoaiSanPhamService>();
+builder.Services.AddScoped<ISanPhamService, TKS.Services.SanPhamService>();
+builder.Services.AddScoped<INhaCungCapService, TKS.Services.NhaCungCapService>();
+builder.Services.AddScoped<IKhoService, TKS.Services.KhoService>();
+builder.Services.AddScoped<IKhoUserService, TKS.Services.KhoUserService>();
 
 var app = builder.Build();
 
@@ -19,7 +34,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+app.UseHttpsRedirection();  
 
 app.UseStaticFiles();
 app.UseAntiforgery();

@@ -1,0 +1,316 @@
+﻿@page "/loaisanpham"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@using System.Text.RegularExpressions
+@inject ILoaiSanPhamService LoaiSanPhamService
+@inject IJSRuntime JS
+
+<div class="container-fluid mt-3">
+    <div class="row">
+        <!-- Form thêm/sửa -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">@(IsEditing ? "Cập nhật loại sản phẩm" : "Thêm loại sản phẩm mới")</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Mã loại sản phẩm <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="MaLSP" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tên loại sản phẩm <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="TenLSP" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu"></textarea>
+                    </div>
+
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-primary" @onclick="SaveLoaiSanPham">
+                            @(IsEditing ? "Cập nhật" : "Lưu")
+                        </button>
+                        @if (IsEditing)
+                        {
+                            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CancelEdit">
+                                Hủy
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">Danh sách loại sản phẩm</h5>
+                    <button class="btn btn-sm btn-light" @onclick="LoadData">Làm mới</button>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải...</p>
+                        </div>
+                    }
+                    else if (Items == null || !Items.Any())
+                    {
+                        <div class="alert alert-info">
+                            Chưa có loại sản phẩm nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Mã LSP</th>
+                                        <th>Tên loại sản phẩm</th>
+                                        <th>Ghi chú</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        <tr>
+                                            <td>@item.Id</td>
+                                            <td>@item.Ma_LSP</td>
+                                            <td>@item.Ten_LSP</td>
+                                            <td>@item.GhiChu</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item)">
+                                                    Xóa
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Xác nhận xóa</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc muốn xóa loại sản phẩm "@currentDeleteItem?.Ten_LSP"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Hủy</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<LoaiSanPham> Items { get; set; } = new();
+    private string MaLSP { get; set; } = "";
+    private string TenLSP { get; set; } = "";
+    private string GhiChu { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    private bool IsEditing { get; set; } = false;
+    private int? EditingId { get; set; }
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    // Xác nhận xóa
+    private bool showDeleteConfirm = false;
+    private LoaiSanPham? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await LoaiSanPhamService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveLoaiSanPham()
+    {
+        var trimmedName = TenLSP?.Trim();
+        var trimmedCode = MaLSP?.Trim();
+        try
+        {
+            // Kiểm tra dữ liệu
+            if (string.IsNullOrWhiteSpace(trimmedCode) || string.IsNullOrWhiteSpace(trimmedName))
+            {
+                errorMessage = "Mã và tên loại sản phẩm không được để trống";
+                successMessage = "";
+                return;
+            }
+            var regexPattern = @"^[\p{L}\p{N}\s]+$";
+            if (!Regex.IsMatch(trimmedCode, regexPattern))
+        {
+            errorMessage = "Mã loại sản phẩm chỉ được chứa chữ cái và số (không dấu, không khoảng trắng)";
+            successMessage = "";
+            return;
+        }
+
+            if (!Regex.IsMatch(trimmedName, regexPattern))
+        {
+            errorMessage = "Tên loại sản phẩm chỉ được chứa chữ cái và số (không dấu, không khoảng trắng)";
+            successMessage = "";
+            return;
+        }
+
+            var loaiSanPham = new LoaiSanPham
+            {
+                    Ma_LSP = trimmedCode,
+                    Ten_LSP = trimmedName,
+                GhiChu = GhiChu
+            };
+
+            if (IsEditing && EditingId.HasValue)
+            {
+                loaiSanPham.Id = EditingId.Value;
+                await LoaiSanPhamService.UpdateAsync(loaiSanPham);
+                successMessage = "Cập nhật loại sản phẩm thành công";
+            }
+            else
+            {
+                await LoaiSanPhamService.AddAsync(loaiSanPham);
+                successMessage = "Thêm loại sản phẩm thành công";
+            }
+
+            errorMessage = "";
+
+            // Reset form
+            MaLSP = "";
+            TenLSP = "";
+            GhiChu = "";
+            IsEditing = false;
+            EditingId = null;
+
+            // Tải lại danh sách
+            await LoadData();
+
+            // Tự động ẩn thông báo sau 3 giây
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+            successMessage = "";
+        }
+    }
+
+    private void EditItem(LoaiSanPham item)
+    {
+        MaLSP = item.Ma_LSP;
+        TenLSP = item.Ten_LSP;
+        GhiChu = item.GhiChu ?? "";
+        IsEditing = true;
+        EditingId = item.Id;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void CancelEdit()
+    {
+        MaLSP = "";
+        TenLSP = "";
+        GhiChu = "";
+        IsEditing = false;
+        EditingId = null;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void ConfirmDelete(LoaiSanPham item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                await LoaiSanPhamService.DeleteAsync(currentDeleteItem.Id);
+                successMessage = "Xóa loại sản phẩm thành công";
+                errorMessage = "";
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+
+                // Tự động ẩn thông báo sau 3 giây
+                await Task.Delay(3000);
+                successMessage = "";
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Lỗi khi xóa: {ex.Message}";
+                successMessage = "";
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+            }
+        }
+    }
+} 

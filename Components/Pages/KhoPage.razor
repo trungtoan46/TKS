@@ -1,0 +1,366 @@
+﻿@page "/kho"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@inject IKhoService KhoService
+@inject IJSRuntime JS
+
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Form thêm/sửa -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">@(IsEditing ? "Cập nhật kho" : "Thêm kho mới")</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <!-- Sử dụng form thông thường không phụ thuộc JS -->
+                    <div class="mb-3">
+                        <label class="form-label">Tên kho <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="TenKho" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú <span class="text-danger">*</span></label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu"></textarea>
+                    </div>
+
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-primary" @onclick="SaveKho">
+                            @(IsEditing ? "Cập nhật" : "Lưu")
+                        </button>
+                        @if (IsEditing)
+                        {
+                            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CancelEdit">
+                                Hủy
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">Danh sách kho</h5>
+                    @* <div> *@
+                    @*     <input type="text" class="form-control d-inline-block me-2" style="width: 200px;"  *@
+                    @*            placeholder="Tìm kiếm..." @bind="searchKeyword" @onkeypress="OnSearchKeyPress" /> *@
+                    @*     <button class="btn btn-sm btn-light me-1" @onclick="SearchKho">Tìm</button> *@
+                    @*     <button class="btn btn-sm btn-light" @onclick="LoadData">Làm mới</button> *@
+                    @* </div> *@
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải...</p>
+                        </div>
+                    }
+                    else if (Items == null || !Items.Any())
+                    {
+                        <div class="alert alert-info">
+                            Chưa có kho nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tên kho</th>
+                                        <th>Ghi chú</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        <tr>
+                                            <td>@item.Kho_Id</td>
+                                            <td>@item.Ten_Kho</td>
+                                            <td>@item.Ghi_Chu</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item)">
+                                                    Xóa
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Xác nhận xóa</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc muốn xóa kho "@currentDeleteItem?.Ten_Kho"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Hủy</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@using System.Text.RegularExpressions;
+@code {
+    private List<Kho> Items { get; set; } = new();
+    private string TenKho { get; set; } = "";
+    private string GhiChu { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    private bool IsEditing { get; set; } = false;
+    private int? EditingId { get; set; }
+    private string errorMessage = "";
+    private string successMessage = "";
+    private string searchKeyword = "";
+
+    // Xác nhận xóa
+    private bool showDeleteConfirm = false;
+    private Kho? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await KhoService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveKho()
+    {
+
+        var trimmedName = TenKho.Trim();
+
+        try
+        {
+            // Kiểm tra dữ liệu
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                errorMessage = "Tên kho không được để trống";
+                successMessage = "";
+                return;
+            }
+            var regexPattern = @"^[\p{L}\p{N}\s]+$";
+
+            if (!Regex.IsMatch(regexPattern, trimmedName))
+            {
+                errorMessage = "Tên chỉ được chứa chữ, số và khoảng trắng (không có ký tự đặc biệt)";
+            }
+
+            var kho = new Kho
+            {
+                    Ten_Kho = trimmedName,
+                Ghi_Chu = GhiChu
+            };
+
+            if (IsEditing && EditingId.HasValue)
+            {
+                kho.Kho_Id = EditingId.Value;
+                await KhoService.UpdateAsync(kho);
+                successMessage = "Cập nhật kho thành công";
+            }
+            else
+            {
+                await KhoService.AddAsync(kho);
+                successMessage = "Thêm kho thành công";
+            }
+
+            errorMessage = "";
+
+            // Reset form
+            TenKho = "";
+            GhiChu = "";
+            IsEditing = false;
+            EditingId = null;
+
+            // Tải lại danh sách
+            await LoadData();
+
+            // Tự động ẩn thông báo sau 3 giây
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+            successMessage = "";
+        }
+    }
+
+    private void EditItem(Kho item)
+    {
+        TenKho = item.Ten_Kho;
+        GhiChu = item.Ghi_Chu ?? "";
+        IsEditing = true;
+        EditingId = item.Kho_Id;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void CancelEdit()
+    {
+        TenKho = "";
+        GhiChu = "";
+        IsEditing = false;
+        EditingId = null;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void ConfirmDelete(Kho item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                await KhoService.DeleteAsync(currentDeleteItem.Kho_Id);
+                successMessage = "Xóa kho thành công";
+                errorMessage = "";
+                
+                // Tự động ẩn thông báo sau 3 giây
+                await Task.Delay(3000);
+                successMessage = "";
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Hiển thị thông báo lỗi ràng buộc
+                errorMessage = ex.Message;
+                successMessage = "";
+            }
+            catch (KeyNotFoundException ex)
+            {
+                // Hiển thị thông báo không tìm thấy
+                errorMessage = ex.Message;
+                successMessage = "";
+            }
+            catch (Exception ex)
+            {
+                // Lấy thông báo lỗi chi tiết nhất có thể
+                var message = ex.InnerException?.Message ?? ex.Message;
+                errorMessage = $"Lỗi khi xóa: {message}";
+                successMessage = "";
+            }
+            finally
+            {
+                // Luôn đóng modal xác nhận và làm mới dữ liệu
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+
+    // private async Task SearchKho()
+    // {
+    //     try
+    //     {
+    //         IsLoading = true;
+    //         StateHasChanged();
+
+    //         Items = await KhoService.SearchAsync(searchKeyword);
+
+    //         IsLoading = false;
+    //         StateHasChanged();
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         errorMessage = $"Lỗi khi tìm kiếm: {ex.Message}";
+    //         IsLoading = false;
+    //         StateHasChanged();
+    //     }
+    // }
+
+    // private async Task OnSearchKeyPress(KeyboardEventArgs e)
+    // {
+    //     if (e.Key == "Enter")
+    //     {
+    //         await SearchKho();
+    //     }
+    // }
+
+    private async Task CheckJavaScript()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", 
+                "document.getElementById('js-status').textContent = 'JavaScript hoạt động ✓'; " +
+                "document.getElementById('js-status').className = 'text-success fw-bold';");
+        }
+        catch
+        {
+            // JavaScript không hoạt động
+        }
+    }
+} 

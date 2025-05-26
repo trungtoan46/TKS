@@ -1,0 +1,402 @@
+﻿@page "/sanpham"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@using System.Text.RegularExpressions;
+@rendermode InteractiveServer
+@inject ISanPhamService SanPhamService
+@inject ILoaiSanPhamService LoaiSanPhamService
+@inject IDonViTinhService DonViTinhService
+@inject IJSRuntime JS
+
+<div class="container-fluid mt-3">
+    <div class="row">
+        <!-- Form thêm/sửa -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">@(IsEditing ? "Cập nhật sản phẩm" : "Thêm sản phẩm mới")</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Mã sản phẩm <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="MaSanPham" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tên sản phẩm <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="TenSanPham" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Loại sản phẩm <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="LoaiSanPhamId">
+                            <option value="0">-- Chọn loại sản phẩm --</option>
+                            @foreach (var loai in LoaiSanPhams)
+                            {
+                                <option value="@loai.Id">@loai.Ten_LSP</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Đơn vị tính <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="DonViTinhId">
+                            <option value="0">-- Chọn đơn vị tính --</option>
+                            @foreach (var donvi in DonViTinhs)
+                            {
+                                <option value="@donvi.Id">@donvi.Ten_Don_Vi_Tinh</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu"></textarea>
+                    </div>
+
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-primary" @onclick="SaveSanPham">
+                            @(IsEditing ? "Cập nhật" : "Lưu")
+                        </button>
+                        @if (IsEditing)
+                        {
+                            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CancelEdit">
+                                Hủy
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">Danh sách sản phẩm</h5>
+                    <button class="btn btn-sm btn-light" @onclick="LoadData">Làm mới</button>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải...</p>
+                        </div>
+                    }
+                    else if (Items == null || !Items.Any())
+                    {
+                        <div class="alert alert-info">
+                            Chưa có sản phẩm nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th>Mã SP</th>
+                                        <th>Tên sản phẩm</th>
+                                        <th>Loại sản phẩm</th>
+                                        <th>Đơn vị tính</th>
+                                        <th>Ghi chú</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        <tr>
+                                            <td>@item.Ma_San_Pham</td>
+                                            <td>@item.Ten_San_Pham</td>
+                                            <td>@GetLoaiSanPhamName(item.Loai_San_Pham_ID)</td>
+                                            <td>@GetDonViTinhName(item.Don_Vi_Tinh_ID)</td>
+                                            <td>@item.GhiChu</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item)">
+                                                    Xóa
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Xác nhận xóa</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc muốn xóa sản phẩm "@currentDeleteItem?.Ten_San_Pham"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Hủy</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<SanPham> Items { get; set; } = new();
+    private List<LoaiSanPham> LoaiSanPhams { get; set; } = new();
+    private List<DonViTinh> DonViTinhs { get; set; } = new();
+
+    private string MaSanPham { get; set; } = "";
+    private string TenSanPham { get; set; } = "";
+    private int LoaiSanPhamId { get; set; }
+    private int DonViTinhId { get; set; }
+    private string GhiChu { get; set; } = "";
+
+    private bool IsLoading { get; set; } = true;
+    private bool IsEditing { get; set; } = false;
+    private int? EditingId { get; set; }
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    // Xác nhận xóa
+    private bool showDeleteConfirm = false;
+    private SanPham? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllData();
+    }
+
+    private async Task LoadAllData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await SanPhamService.GetAllAsync();
+            LoaiSanPhams = await LoaiSanPhamService.GetAllAsync();
+            DonViTinhs = await DonViTinhService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await SanPhamService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveSanPham()
+    {
+        var trimmedName = TenSanPham.Trim();
+        var trimmedCode = MaSanPham.Trim();
+
+
+        try
+        {
+            // Kiểm tra dữ liệu
+            if (string.IsNullOrWhiteSpace(trimmedCode) || string.IsNullOrWhiteSpace(trimmedName))
+            {
+                errorMessage = "Mã và tên sản phẩm không được để trống";
+                successMessage = "";
+                return;
+            }
+
+            if (LoaiSanPhamId == 0)
+            {
+                errorMessage = "Vui lòng chọn loại sản phẩm";
+                successMessage = "";
+                return;
+            }
+
+            if (DonViTinhId == 0)
+            {
+                errorMessage = "Vui lòng chọn đơn vị tính";
+                successMessage = "";
+                return;
+            }
+
+
+            // var regexPattern = @"^[\p{L}\p{N}\s]+$";
+            // if (!Regex.IsMatch(regexPattern, trimmedName))
+            // {
+            //     errorMessage = "Tên chỉ được chứa chữ, số và khoảng trắng (không có ký tự đặc biệt)";
+            // }
+
+            // if (!Regex.IsMatch(regexPattern, trimmedCode))
+            // {
+            //     errorMessage = "Mã chỉ được chứa chữ, số và khoảng trắng (không có ký tự đặc biệt)";
+            // }
+
+
+            var sanPham = new SanPham
+            {
+                    Ma_San_Pham = trimmedCode,
+                    Ten_San_Pham = trimmedName,
+                Loai_San_Pham_ID = LoaiSanPhamId,
+                Don_Vi_Tinh_ID = DonViTinhId,
+                GhiChu = GhiChu
+            };
+
+            if (IsEditing && EditingId.HasValue)
+            {
+                sanPham.Id = EditingId.Value;
+                await SanPhamService.UpdateAsync(sanPham);
+                successMessage = "Cập nhật sản phẩm thành công";
+            }
+            else
+            {
+                await SanPhamService.AddAsync(sanPham);
+                successMessage = "Thêm sản phẩm thành công";
+            }
+
+            errorMessage = "";
+            
+            // Reset form
+            ResetForm();
+            
+            // Tải lại danh sách
+            await LoadData();
+            
+            // Tự động ẩn thông báo sau 3 giây
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+            successMessage = "";
+        }
+    }
+
+    private void ResetForm()
+    {
+        MaSanPham = "";
+        TenSanPham = "";
+        LoaiSanPhamId = 0;
+        DonViTinhId = 0;
+        GhiChu = "";
+        IsEditing = false;
+        EditingId = null;
+    }
+
+    private void EditItem(SanPham item)
+    {
+        MaSanPham = item.Ma_San_Pham;
+        TenSanPham = item.Ten_San_Pham;
+        LoaiSanPhamId = item.Loai_San_Pham_ID;
+        DonViTinhId = item.Don_Vi_Tinh_ID;
+        GhiChu = item.GhiChu ?? "";
+        IsEditing = true;
+        EditingId = item.Id;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void CancelEdit()
+    {
+        ResetForm();
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void ConfirmDelete(SanPham item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                await SanPhamService.DeleteAsync(currentDeleteItem.Id);
+                successMessage = "Xóa sản phẩm thành công";
+                errorMessage = "";
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+
+                // Tự động ẩn thông báo sau 3 giây
+                await Task.Delay(3000);
+                successMessage = "";
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Lỗi khi xóa: {ex.Message}";
+                successMessage = "";
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+            }
+        }
+    }
+    
+    // Lấy tên loại sản phẩm từ ID
+    private string GetLoaiSanPhamName(int id)
+    {
+        var loai = LoaiSanPhams.FirstOrDefault(l => l.Id == id);
+        return loai?.Ten_LSP ?? "Không xác định";
+    }
+    
+    // Lấy tên đơn vị tính từ ID
+    private string GetDonViTinhName(int id)
+    {
+        var donvi = DonViTinhs.FirstOrDefault(d => d.Id == id);
+        return donvi?.Ten_Don_Vi_Tinh ?? "Không xác định";
+    }
+} 

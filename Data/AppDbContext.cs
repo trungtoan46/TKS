@@ -1,13 +1,17 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TKS.Models;
 
 namespace TKS.Data
 {
     public class AppDbContext :DbContext
     {
-        public DbSet<Models.NhaCungCap> NhaCungCaps { get; set; }
-        public DbSet<Models.SanPham> SanPhams { get; set; }
-        public DbSet<Models.LoaiSanPham> LoaiSanPhams { get; set; }
-        public DbSet<Models.DonViTinh> DonViTinhs { get; set; }
+        public DbSet<NhaCungCap> NhaCungCaps { get; set; }
+        public DbSet<SanPham> SanPhams { get; set; }
+        public DbSet<LoaiSanPham> LoaiSanPhams { get; set; }
+        public DbSet<DonViTinh> DonViTinhs { get; set; }
+
+        public DbSet<Kho> Khos { get; set; }
+        public DbSet<KhoUser> KhoUsers { get; set; }
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) 
         {
             
@@ -16,17 +20,41 @@ namespace TKS.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-           modelBuilder.Entity<Models.SanPham>()
-                .HasIndex(sp => new { sp.Loai_San_Pham_ID, sp.Ten_San_Pham, sp.Ma_San_Pham, sp.Don_Vi_Tinh_ID });
+           modelBuilder.Entity<SanPham>()
+                .HasIndex(sp => new { sp.Loai_San_Pham_ID, sp.Ten_San_Pham, sp.Ma_San_Pham, sp.Don_Vi_Tinh_ID })
+                .IsUnique();
 
-            modelBuilder.Entity<Models.DonViTinh>()
-                .HasIndex(dvt => new {dvt.TenDonViTinh });
+            modelBuilder.Entity<SanPham>()
+                .HasOne(sp => sp.donViTinh)
+                .WithMany()
+                .HasForeignKey(sp => sp.Don_Vi_Tinh_ID)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .IsRequired();
 
-            modelBuilder.Entity<Models.LoaiSanPham>()
-                .HasIndex(lsp => new {lsp.Ma_LSP, lsp.Ten_LSP });
+            modelBuilder.Entity<SanPham>()
+                .HasOne(sp => sp.loaiSanPham)
+                .WithMany()
+                .HasForeignKey(sp => sp.Loai_San_Pham_ID)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .IsRequired();
 
-            modelBuilder.Entity<Models.NhaCungCap>()
-                .HasIndex(ncc => ncc.Ten_NCC);
+
+            modelBuilder.Entity<DonViTinh>()
+                .HasIndex(dvt => dvt.Ten_Don_Vi_Tinh)
+                .IsUnique();
+            
+            modelBuilder.Entity<LoaiSanPham>()
+                .HasIndex(lsp => new { lsp.Ma_LSP, lsp.Ten_LSP })
+                .IsUnique();
+
+            modelBuilder.Entity<NhaCungCap>()
+                .HasIndex(ncc => ncc.Ten_NCC)
+                .IsUnique();
+
+
+            modelBuilder.Entity<Kho>()
+                .HasIndex(kho => kho.Ten_Kho)
+                .IsUnique();
         }
 
     }

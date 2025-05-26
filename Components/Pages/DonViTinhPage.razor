@@ -1,0 +1,346 @@
+﻿@page "/donvitinh"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@using System.Text.RegularExpressions
+@rendermode InteractiveServer
+@inject IDonViTinhService DonViTinhService
+@inject IJSRuntime JS
+
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <strong>Trạng thái JS:</strong> <span id="js-status">Đang kiểm tra...</span>
+                <button class="btn btn-sm btn-primary ms-2" @onclick="CheckJavaScript">Kiểm tra JS</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Form thêm/sửa -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">@(IsEditing ? "Cập nhật đơn vị tính" : "Thêm đơn vị tính mới")</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">@successMessage</div>
+                    }
+
+                    <!-- Sử dụng form thông thường không phụ thuộc JS -->
+                    <div class="mb-3">
+                        <label class="form-label">Tên đơn vị tính <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="TenDonViTinh" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu"></textarea>
+                    </div>
+
+                    <div class="d-flex">
+                        <button type="button" class="btn btn-primary" @onclick="SaveDonViTinh">
+                            @(IsEditing ? "Cập nhật" : "Lưu")
+                        </button>
+                        @if (IsEditing)
+                        {
+                            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CancelEdit">
+                                Hủy
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">Danh sách đơn vị tính</h5>
+                    <button class="btn btn-sm btn-light" @onclick="LoadData">Làm mới</button>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải...</p>
+                        </div>
+                    }
+                    else if (Items == null || !Items.Any())
+                    {
+                        <div class="alert alert-info">
+                            Chưa có đơn vị tính nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tên đơn vị tính</th>
+                                        <th>Ghi chú</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Items)
+                                    {
+                                        <tr>
+                                            <td>@item.Id</td>
+                                            <td>@item.Ten_Don_Vi_Tinh</td>
+                                            <td>@item.GhiChu</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditItem(item)">
+                                                    Sửa
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(item)">
+                                                    Xóa
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Xác nhận xóa</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc muốn xóa đơn vị tính "@currentDeleteItem?.Ten_Don_Vi_Tinh"?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Hủy</button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed">Xóa</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<DonViTinh> Items { get; set; } = new();
+    private string TenDonViTinh { get; set; } = "";
+    private string GhiChu { get; set; } = "";
+    private bool IsLoading { get; set; } = true;
+    private bool IsEditing { get; set; } = false;
+    private int? EditingId { get; set; }
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    // Xác nhận xóa
+    private bool showDeleteConfirm = false;
+    private DonViTinh? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("eval", "document.getElementById('js-status').textContent = 'JavaScript hoạt động'");
+            }
+            catch
+            {
+                // JavaScript không hoạt động
+            }
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            StateHasChanged();
+
+            Items = await DonViTinhService.GetAllAsync();
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveDonViTinh()
+    {
+        var trimmedName = TenDonViTinh?.Trim();
+        try
+        {
+            // Kiểm tra dữ liệu
+            if (string.IsNullOrWhiteSpace(TenDonViTinh))
+            {
+                errorMessage = "Tên đơn vị tính không được để trống";
+                successMessage = "";
+                return;
+            }
+            var regexPattern = @"^[\p{L}\p{N}\s]+$";
+            if (!Regex.IsMatch(trimmedName, regexPattern))
+            {
+                errorMessage = "Tên chỉ được chứa chữ, số và khoảng trắng (không có ký tự đặc biệt)";
+                return;
+            }
+
+            var donViTinh = new DonViTinh
+            {
+                    Ten_Don_Vi_Tinh = trimmedName,
+                GhiChu = GhiChu
+            };
+
+            if (IsEditing && EditingId.HasValue)
+            {
+                donViTinh.Id = EditingId.Value;
+                await DonViTinhService.UpdateAsync(donViTinh);
+                successMessage = "Cập nhật đơn vị tính thành công";
+            }
+            else
+            {
+                await DonViTinhService.AddAsync(donViTinh);
+                successMessage = "Thêm đơn vị tính thành công";
+            }
+
+            errorMessage = "";
+
+            // Reset form
+            TenDonViTinh = "";
+            GhiChu = "";
+            IsEditing = false;
+            EditingId = null;
+
+            // Tải lại danh sách
+            await LoadData();
+
+            // Tự động ẩn thông báo sau 3 giây
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi: {ex.Message}";
+            successMessage = "";
+        }
+    }
+
+    private void EditItem(DonViTinh item)
+    {
+        TenDonViTinh = item.Ten_Don_Vi_Tinh;
+        GhiChu = item.GhiChu ?? "";
+        IsEditing = true;
+        EditingId = item.Id;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void CancelEdit()
+    {
+        TenDonViTinh = "";
+        GhiChu = "";
+        IsEditing = false;
+        EditingId = null;
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private void ConfirmDelete(DonViTinh item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                await DonViTinhService.DeleteAsync(currentDeleteItem.Id);
+                successMessage = "Xóa đơn vị tính thành công";
+                errorMessage = "";
+                
+                // Tự động ẩn thông báo sau 3 giây
+                await Task.Delay(3000);
+                successMessage = "";
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Hiển thị thông báo lỗi ràng buộc
+                errorMessage = ex.Message;
+                successMessage = "";
+            }
+            catch (KeyNotFoundException ex)
+            {
+                // Hiển thị thông báo không tìm thấy
+                errorMessage = ex.Message;
+                successMessage = "";
+            }
+            catch (Exception ex)
+            {
+                // Lấy thông báo lỗi chi tiết nhất có thể
+                var message = ex.InnerException?.Message ?? ex.Message;
+                errorMessage = $"Lỗi khi xóa: {message}";
+                successMessage = "";
+            }
+            finally
+            {
+                // Luôn đóng modal xác nhận và làm mới dữ liệu
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task CheckJavaScript()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", 
+                "document.getElementById('js-status').textContent = 'JavaScript hoạt động ✓'; " +
+                "document.getElementById('js-status').className = 'text-success fw-bold';");
+        }
+        catch
+        {
+            // JavaScript không hoạt động
+        }
+    }
+}
