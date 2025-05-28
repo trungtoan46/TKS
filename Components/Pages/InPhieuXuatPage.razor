@@ -1,0 +1,325 @@
+﻿@page "/in-phieu-xuat/{SoPhieu}"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@using TKS.Services.Helpers
+@using TKS.Components.Layout
+@layout PrintLayout
+
+@inject IXuatKhoService XuatKhoService
+@inject IXuatKhoRawService XuatKhoRawService
+@inject IKhoService KhoService
+@inject ISanPhamService SanPhamService
+@inject IDonViTinhService DonViTinhService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+@if (isLoading)
+{
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <div class="col-12 text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Đang tải...</span>
+                </div>
+                <p class="mt-2">Đang tải dữ liệu phiếu xuất...</p>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid print-area mt-3">
+        <!-- Header phiếu xuất -->
+        <div class="row mb-3">
+            <div class="col-12 text-center">
+                <h2 style="font-size: 28px; font-weight: bold; margin-bottom: 10px;">PHIẾU XUẤT KHO</h2>
+                <div style="margin-top: 15px;">
+                    <span>Ngày @(phieuXuat?.Ngay_Xuat_Kho.ToString("dd")) tháng @(phieuXuat?.Ngay_Xuat_Kho.ToString("M")) năm @(phieuXuat?.Ngay_Xuat_Kho.ToString("yyyy"))</span><br>
+                    <span><strong>Số: @SoPhieu</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- I. Thông tin chung -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <h5><strong>I. Thông tin chung</strong></h5>
+                <table class="table-borderless" style="width: 100%;">
+                    <tbody>
+                        <tr>
+                            <td style="width: 20%;"><strong>1. Lệnh giao hàng:</strong></td>
+                            <td style="width: 30%;">@(phieuXuat?.Ghi_Chu ?? "425/07")</td>
+                            <td style="width: 50%;"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>2. Cửa hàng:</strong></td>
+                            <td><strong>Khách lẻ</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td><strong>3. Kho:</strong></td>
+                            <td><strong>@(kho?.Ten_Kho ?? "")</strong></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td><strong>4. Ghi chú:</strong></td>
+                            <td><strong>Khách lẻ ( Hiện gãi )</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- II. Thông tin hàng -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <h5><strong>II. Thông tin hàng</strong></h5>
+                <table class="table-bordered table" style="border: 2px solid #000;">
+                    <thead style="background-color: #ffff00;">
+                        <tr>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 50px;">STT</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 100px;">Mã Hàng</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 250px;">Tên Hàng</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 60px;">PO</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 80px;">Số Chi Lệnh</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 50px;">SL</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 50px;">DVT</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 80px;">Kiểm Kê</th>
+                            <th class="text-center align-middle" style="border: 1px solid #000; width: 100px;">Ghi Chú</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (chiTietPhieu != null && chiTietPhieu.Count > 0)
+                        {
+                            @for (int i = 0; i < chiTietPhieu.Count; i++)
+                            {
+                                var item = chiTietPhieu[i];
+                                var sanPham = danhSachSanPham.FirstOrDefault(sp => sp.Id == item.San_Pham_ID);
+                                var donViTinh = danhSachDonViTinh.FirstOrDefault(dvt => dvt.Id == sanPham?.Don_Vi_Tinh_ID);
+
+                                <tr>
+                                    <td class="text-center" style="border: 1px solid #000;">@(string.Format("{0:D2}", i + 1))</td>
+                                    <td class="text-center" style="border: 1px solid #000;">@(sanPham?.Ma_San_Pham ?? "")</td>
+                                    <td style="border: 1px solid #000;">@(sanPham?.Ten_San_Pham ?? "N/A")</td>
+                                    <td style="border: 1px solid #000;"></td>
+                                    <td style="border: 1px solid #000;"></td>
+                                    <td class="text-center" style="border: 1px solid #000;">@item.SL_Xuat</td>
+                                    <td class="text-center" style="border: 1px solid #000;">@(donViTinh?.Ten_Don_Vi_Tinh ?? "Đôi")</td>
+                                    <td style="border: 1px solid #000;"></td>
+                                    <td style="border: 1px solid #000;"></td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="text-center" style="border: 1px solid #000; padding: 20px;">Không có dữ liệu</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- III. Kết luận -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5><strong>III. Kết luận</strong></h5>
+                <div style="margin-bottom: 10px;">
+                    <strong>1. Tổng số lượng thực xuất (viết bằng số):</strong> @chiTietPhieu?.Sum(x => x.SL_Xuat)
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>2. Tổng số lượng thực xuất (viết bằng chữ):</strong> @DocSoLuongBangChu(chiTietPhieu?.Sum(x => x.SL_Xuat) ?? 0)
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <strong>3. Mô tả khác biệt:</strong>
+                </div>
+
+                <!-- Khung trống cho ghi chú -->
+                <div style="border: 1px solid #000; height: 80px; width: 100%; margin-bottom: 20px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Chữ ký -->
+        <div class="row">
+            <div class="col-3 text-center">
+                <p><strong>Người lập phiếu</strong></p>
+                <div style="height: 60px;"></div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 0 auto;"></div>
+            </div>
+            <div class="col-3 text-center">
+                <p><strong>Người nhận hàng</strong></p>
+                <div style="height: 60px;"></div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 0 auto;"></div>
+            </div>
+            <div class="col-3 text-center">
+                <p><strong>Điều phối</strong></p>
+                <div style="height: 60px;"></div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 0 auto;"></div>
+            </div>
+            <div class="col-3 text-center">
+                <p><strong>Giám đốc</strong></p>
+                <div style="height: 60px;"></div>
+                <div style="border-bottom: 1px solid #000; width: 80%; margin: 0 auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nút in -->
+    <div class="container-fluid no-print mt-3">
+        <div class="row">
+            <div class="col-12">
+                <button type="button" class="btn btn-primary me-2" @onclick="InPhieu">
+                    [PRINT] In phiếu
+                </button>
+                <button type="button" class="btn btn-secondary" @onclick="QuayLai">
+                    [BACK] Quay lại
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string SoPhieu { get; set; } = string.Empty;
+
+    private XuatKho phieuXuat = new();
+    private List<XuatKhoRaw> chiTietPhieu = new();
+    private Kho kho = new();
+    private List<SanPham> danhSachSanPham = new();
+    private List<DonViTinh> danhSachDonViTinh = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(SoPhieu))
+            {
+                await LoadData();
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/quan-ly-phieu-xuat");
+            }
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Load phiếu xuất
+            var dsPhieuXuat = await XuatKhoService.GetAllAsync();
+            if (dsPhieuXuat != null)
+            {
+                phieuXuat = dsPhieuXuat.FirstOrDefault(p => p.So_Phieu_Xuat_Kho == SoPhieu) ?? new XuatKho();
+            }
+
+            if (phieuXuat != null && phieuXuat.ID > 0)
+            {
+                // Load chi tiết
+                var dsChiTiet = await XuatKhoRawService.GetByPhieuIdAsync(phieuXuat.ID);
+                if (dsChiTiet != null)
+                {
+                    chiTietPhieu = dsChiTiet;
+                }
+
+                // Load kho
+                var dsKho = await KhoService.GetAllAsync();
+                if (dsKho != null)
+                {
+                    kho = dsKho.FirstOrDefault(k => k.Kho_Id == phieuXuat.Kho_ID) ?? new Kho();
+                }
+
+                // Load sản phẩm
+                var dsSanPham = await SanPhamService.GetAllAsync();
+                if (dsSanPham != null)
+                {
+                    danhSachSanPham = dsSanPham;
+                }
+
+                // Load đơn vị tính
+                var dsDVT = await DonViTinhService.GetAllAsync();
+                if (dsDVT != null)
+                {
+                    danhSachDonViTinh = dsDVT;
+                }
+            }
+            else
+            {
+                NavigationManager.NavigateTo("/quan-ly-phieu-xuat");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi khi load dữ liệu: {ex.Message}");
+            NavigationManager.NavigateTo("/quan-ly-phieu-xuat");
+        }
+    }
+
+    private async Task InPhieu()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("printUtils.printPage");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi khi in: {ex.Message}");
+            // Fallback: sử dụng window.print thông thường
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("window.print");
+            }
+            catch
+            {
+                Console.WriteLine("Không thể in trang");
+            }
+        }
+    }
+
+    private void QuayLai()
+    {
+        try
+        {
+            NavigationManager.NavigateTo("/quan-ly-phieu-xuat");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi khi chuyển trang: {ex.Message}");
+        }
+    }
+
+    private string DocSoLuongBangChu(int soLuong)
+    {
+        try
+        {
+            if (soLuong == 0) return "Không";
+            
+            var soLuongStr = soLuong.ToString();
+            var result = NumberToWordsHelper.ChuyenSoThanhChu(double.Parse(soLuongStr));
+            
+            if (result.EndsWith(" đồng"))
+            {
+                result = result.Substring(0, result.Length - 5);
+            }
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi chuyển số lượng thành chữ: {ex.Message}");
+            return "...";
+        }
+    }
+} 

@@ -12,6 +12,11 @@ namespace TKS.Data
 
         public DbSet<Kho> Khos { get; set; }
         public DbSet<KhoUser> KhoUsers { get; set; }
+        public DbSet<NhapKho> NhapKhos { get; set; }
+        public DbSet<NhapKhoRaw> NhapKhoRaws { get; set; }
+        public DbSet<XNK_Nhap_Kho> XNK_Nhap_Khos { get; set; }
+        public DbSet<XuatKho> XuatKhos { get; set; }
+        public DbSet<XuatKhoRaw> XuatKhoRaws { get; set; }
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) 
         {
             
@@ -54,6 +59,10 @@ namespace TKS.Data
 
             modelBuilder.Entity<Kho>()
                 .HasIndex(kho => kho.Ten_Kho)
+                .IsUnique();
+
+            modelBuilder.Entity<NhapKho>()
+                .HasIndex(phieu => phieu.So_Phieu_Nhap_Kho)
                 .IsUnique();
         }
 

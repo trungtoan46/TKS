@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TKS.Data;
 
@@ -11,9 +12,11 @@ using TKS.Data;
 namespace TKS.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250526033210_updatePhieuNhap")]
+    partial class updatePhieuNhap
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -255,58 +258,6 @@ namespace TKS.Migrations
                     b.HasKey("So_Phieu_Nhap_Kho");
 
                     b.ToTable("tbl_XNK_Nhap_Kho");
-                });
-
-            modelBuilder.Entity("TKS.Models.XuatKho", b =>
-                {
-                    b.Property<int>("ID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("ID"));
-
-                    b.Property<string>("Ghi_Chu")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<int>("Kho_ID")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("Ngay_Xuat_Kho")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("So_Phieu_Xuat_Kho")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.HasKey("ID");
-
-                    b.ToTable("tbl_DM_Xuat_Kho");
-                });
-
-            modelBuilder.Entity("TKS.Models.XuatKhoRaw", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<double>("Don_Gia_Xuat")
-                        .HasColumnType("double");
-
-                    b.Property<int>("SL_Xuat")
-                        .HasColumnType("int");
-
-                    b.Property<int>("San_Pham_ID")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Xuat_Kho_ID")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("tbl_DM_Xuat_Kho_Raw_Data");
                 });
 
             modelBuilder.Entity("TKS.Models.SanPham", b =>

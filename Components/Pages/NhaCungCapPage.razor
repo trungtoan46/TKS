@@ -1,0 +1,564 @@
+@page "/nhacungcap"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@inject INhaCungCapService NhaCungCapService
+
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h3>
+                <i class="bi bi-truck me-2"></i>
+                Quản lý nhà cung cấp
+            </h3>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Form thêm/sửa nhà cung cấp -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        @if (isEditing)
+                        {
+                            <i class="bi bi-pencil-square me-2"></i>
+                            <span>Sửa nhà cung cấp</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-plus-circle me-2"></i>
+                            <span>Thêm nhà cung cấp mới</span>
+                        }
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            @errorMessage
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle me-2"></i>
+                            @successMessage
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Mã nhà cung cấp <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="MaNCC" 
+                               placeholder="Nhập mã NCC (vd: NCC001)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tên nhà cung cấp <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="TenNCC" 
+                               placeholder="Nhập tên nhà cung cấp" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu" 
+                                  placeholder="Nhập ghi chú (tùy chọn)"></textarea>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        @if (isEditing)
+                        {
+                            <button type="button" class="btn btn-success" @onclick="UpdateNhaCungCap" disabled="@IsProcessing">
+                                @if (IsProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Đang cập nhật...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-check-lg me-2"></i>
+                                    <span>Cập nhật</span>
+                                }
+                            </button>
+                            <button type="button" class="btn btn-secondary" @onclick="CancelEdit">
+                                <i class="bi bi-x-lg me-2"></i>
+                                Hủy
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary" @onclick="AddNhaCungCap" disabled="@IsProcessing">
+                                @if (IsProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Đang thêm...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-plus-lg me-2"></i>
+                                    <span>Thêm nhà cung cấp</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách nhà cung cấp -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-ul me-2"></i>
+                        Danh sách nhà cung cấp
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control" style="width: 200px;" 
+                               placeholder="Tìm kiếm..." @bind="searchKeyword" @onkeypress="OnSearchKeyPress" />
+                        <button class="btn btn-sm btn-light" @onclick="SearchNhaCungCap">
+                            <i class="bi bi-search"></i>
+                        </button>
+                        <button class="btn btn-sm btn-light" @onclick="LoadData">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="text-center p-3">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải dữ liệu...</p>
+                        </div>
+                    }
+                    else if (danhSachNCC == null || !danhSachNCC.Any())
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Chưa có nhà cung cấp nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Mã NCC</th>
+                                        <th>Tên nhà cung cấp</th>
+                                        <th>Ghi chú</th>
+                                        <th class="text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{int stt = 1;}
+                                    @foreach (var ncc in danhSachNCC)
+                                    {
+                                        <tr>
+                                            <td>@stt</td>
+                                            <td>
+                                                <span class="badge bg-primary">@ncc.Ma_NCC</span>
+                                            </td>
+                                            <td>
+                                                <span class="fw-bold">@ncc.Ten_NCC</span>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(ncc.GhiChu))
+                                                {
+                                                    @ncc.GhiChu
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">--</span>
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-warning me-1" 
+                                                        @onclick="() => EditNhaCungCap(ncc)"
+                                                        title="Sửa">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" 
+                                                        @onclick="() => ConfirmDelete(ncc)"
+                                                        title="Xóa">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        stt++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Thống kê -->
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Tổng cộng: <strong>@danhSachNCC.Count</strong> nhà cung cấp
+                            </small>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal xác nhận xóa -->
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Xác nhận xóa nhà cung cấp
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc chắn muốn xóa nhà cung cấp <strong>"@currentDeleteItem?.Ten_NCC"</strong> (Mã: @currentDeleteItem?.Ma_NCC)?</p>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Lưu ý:</strong> Thao tác này không thể hoàn tác.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
+                            <i class="bi bi-x-lg me-1"></i>Hủy
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed" disabled="@IsProcessing">
+                            @if (IsProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Đang xóa...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-trash me-1"></i>
+                                <span>Xóa</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<NhaCungCap> danhSachNCC = new();
+    
+    private bool IsLoading = true;
+    private bool IsProcessing = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private string searchKeyword = "";
+    
+    // Form variables
+    private string MaNCC = "";
+    private string TenNCC = "";
+    private string GhiChu = "";
+    private bool isEditing = false;
+    private NhaCungCap? editingItem;
+    
+    // Delete confirmation
+    private bool showDeleteConfirm = false;
+    private NhaCungCap? currentDeleteItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            danhSachNCC = await NhaCungCapService.GetAllAsync();
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AddNhaCungCap()
+    {
+        try
+        {
+            IsProcessing = true;
+            errorMessage = "";
+            successMessage = "";
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(MaNCC))
+            {
+                errorMessage = "Mã nhà cung cấp không được để trống";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(TenNCC))
+            {
+                errorMessage = "Tên nhà cung cấp không được để trống";
+                return;
+            }
+
+            // Kiểm tra regex cho mã NCC
+            if (!System.Text.RegularExpressions.Regex.IsMatch(MaNCC, @"^[a-zA-Z0-9]+$"))
+            {
+                errorMessage = "Mã nhà cung cấp chỉ được chứa chữ cái và số";
+                return;
+            }
+
+            // Kiểm tra regex cho tên NCC
+            if (!System.Text.RegularExpressions.Regex.IsMatch(TenNCC, @"^[a-zA-Z0-9\s]+$"))
+            {
+                errorMessage = "Tên nhà cung cấp chỉ được chứa chữ cái, số và khoảng trắng";
+                return;
+            }
+
+            // Kiểm tra trùng lặp mã
+            if (danhSachNCC.Any(x => x.Ma_NCC.Equals(MaNCC.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "Mã nhà cung cấp đã tồn tại";
+                return;
+            }
+
+            // Kiểm tra trùng lặp tên
+            if (danhSachNCC.Any(x => x.Ten_NCC.Equals(TenNCC.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "Tên nhà cung cấp đã tồn tại";
+                return;
+            }
+
+            var ncc = new NhaCungCap
+            {
+                Ma_NCC = MaNCC.Trim(),
+                Ten_NCC = TenNCC.Trim(),
+                GhiChu = string.IsNullOrWhiteSpace(GhiChu) ? null : GhiChu.Trim()
+            };
+
+            await NhaCungCapService.AddAsync(ncc);
+            successMessage = "Thêm nhà cung cấp thành công";
+            
+            // Reset form
+            ResetForm();
+
+            // Reload data
+            await LoadData();
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi thêm nhà cung cấp: {ex.Message}";
+            successMessage = "";
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void EditNhaCungCap(NhaCungCap ncc)
+    {
+        isEditing = true;
+        editingItem = ncc;
+        MaNCC = ncc.Ma_NCC;
+        TenNCC = ncc.Ten_NCC;
+        GhiChu = ncc.GhiChu ?? "";
+        errorMessage = "";
+        successMessage = "";
+    }
+
+    private async Task UpdateNhaCungCap()
+    {
+        try
+        {
+            if (editingItem == null) return;
+
+            IsProcessing = true;
+            errorMessage = "";
+            successMessage = "";
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(MaNCC))
+            {
+                errorMessage = "Mã nhà cung cấp không được để trống";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(TenNCC))
+            {
+                errorMessage = "Tên nhà cung cấp không được để trống";
+                return;
+            }
+
+            // Kiểm tra regex cho mã NCC
+            if (!System.Text.RegularExpressions.Regex.IsMatch(MaNCC, @"^[a-zA-Z0-9]+$"))
+            {
+                errorMessage = "Mã nhà cung cấp chỉ được chứa chữ cái và số";
+                return;
+            }
+
+            // Kiểm tra regex cho tên NCC
+            if (!System.Text.RegularExpressions.Regex.IsMatch(TenNCC, @"^[a-zA-Z0-9\s]+$"))
+            {
+                errorMessage = "Tên nhà cung cấp chỉ được chứa chữ cái, số và khoảng trắng";
+                return;
+            }
+
+            // Kiểm tra trùng lặp mã (trừ chính nó)
+            if (danhSachNCC.Any(x => x.Id != editingItem.Id && x.Ma_NCC.Equals(MaNCC.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "Mã nhà cung cấp đã tồn tại";
+                return;
+            }
+
+            // Kiểm tra trùng lặp tên (trừ chính nó)
+            if (danhSachNCC.Any(x => x.Id != editingItem.Id && x.Ten_NCC.Equals(TenNCC.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                errorMessage = "Tên nhà cung cấp đã tồn tại";
+                return;
+            }
+
+            editingItem.Ma_NCC = MaNCC.Trim();
+            editingItem.Ten_NCC = TenNCC.Trim();
+            editingItem.GhiChu = string.IsNullOrWhiteSpace(GhiChu) ? null : GhiChu.Trim();
+
+            await NhaCungCapService.UpdateAsync(editingItem);
+            successMessage = "Cập nhật nhà cung cấp thành công";
+
+            // Cancel edit mode
+            CancelEdit();
+
+            // Reload data
+            await LoadData();
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi cập nhật: {ex.Message}";
+            successMessage = "";
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEdit()
+    {
+        isEditing = false;
+        editingItem = null;
+        ResetForm();
+    }
+
+    private void ResetForm()
+    {
+        MaNCC = "";
+        TenNCC = "";
+        GhiChu = "";
+        errorMessage = "";
+    }
+
+    private async Task SearchNhaCungCap()
+    {
+        try
+        {
+            IsLoading = true;
+            if (string.IsNullOrWhiteSpace(searchKeyword))
+            {
+                danhSachNCC = await NhaCungCapService.GetAllAsync();
+            }
+            else
+            {
+                danhSachNCC = await NhaCungCapService.Search(searchKeyword);
+            }
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tìm kiếm: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchNhaCungCap();
+        }
+    }
+
+    private void ConfirmDelete(NhaCungCap ncc)
+    {
+        currentDeleteItem = ncc;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                IsProcessing = true;
+                await NhaCungCapService.DeleteAsync(currentDeleteItem.Id);
+                successMessage = "Xóa nhà cung cấp thành công";
+                errorMessage = "";
+
+                // If currently editing this item, cancel edit
+                if (isEditing && editingItem?.Id == currentDeleteItem.Id)
+                {
+                    CancelEdit();
+                }
+                
+                // Auto hide success message after 3 seconds
+                await Task.Delay(3000);
+                successMessage = "";
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Lỗi khi xóa: {ex.Message}";
+                successMessage = "";
+            }
+            finally
+            {
+                IsProcessing = false;
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+}

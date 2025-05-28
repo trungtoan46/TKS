@@ -14,13 +14,79 @@
     <HeadOutlet />
     <script>
         console.log('JS runtime loaded');
+        
+        // Print utilities
+        window.printUtils = {
+            // Ẩn các element có class no-print và in trang
+            printPage: function() {
+                console.log('printPage called');
+                // Lưu trạng thái hiện tại
+                const noPrintElements = document.querySelectorAll('.no-print');
+                const originalDisplays = [];
+                
+                // Ẩn tất cả element có class no-print
+                noPrintElements.forEach((element, index) => {
+                    originalDisplays[index] = element.style.display;
+                    element.style.display = 'none';
+                });
+                
+                // Function để khôi phục hiển thị
+                const restoreElements = () => {
+                    console.log('Restoring elements after print');
+                    noPrintElements.forEach((element, index) => {
+                        element.style.display = originalDisplays[index];
+                    });
+                };
+                
+                // Lắng nghe sự kiện sau khi in
+                const afterPrint = () => {
+                    console.log('Print dialog closed');
+                    restoreElements();
+                    window.removeEventListener('afterprint', afterPrint);
+                };
+                
+                // Thêm event listener cho afterprint
+                window.addEventListener('afterprint', afterPrint);
+                
+                // In trang
+                window.print();
+                
+                // Backup: khôi phục sau 2 giây nếu afterprint không hoạt động
+                setTimeout(() => {
+                    if (noPrintElements[0] && noPrintElements[0].style.display === 'none') {
+                        console.log('Backup restore after 2 seconds');
+                        restoreElements();
+                        window.removeEventListener('afterprint', afterPrint);
+                    }
+                }, 2000);
+            },
+            
+            // Chỉ ẩn element no-print (không in)
+            hideNoPrintElements: function() {
+                const noPrintElements = document.querySelectorAll('.no-print');
+                noPrintElements.forEach(element => {
+                    element.style.display = 'none';
+                });
+            },
+            
+            // Hiển thị lại element no-print
+            showNoPrintElements: function() {
+                const noPrintElements = document.querySelectorAll('.no-print');
+                noPrintElements.forEach(element => {
+                    element.style.display = '';
+                });
+            }
+        };
+        
+        console.log('printUtils loaded:', window.printUtils);
     </script>
 
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode=RenderMode.InteractiveServer />
     <script src="_framework/blazor.web.js"></script>
+
 </body>
 
 </html>

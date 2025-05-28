@@ -1,0 +1,1240 @@
+﻿@page "/quan-ly-phieu-nhap"
+@using TKS.Services.Interfaces
+@using TKS.Models
+@rendermode InteractiveServer
+@inject INhapKhoService NhapKhoService
+@inject IKhoService KhoService
+@inject IXNKNhapKhoService XNKNhapKhoService
+@inject INhaCungCapService NhaCungCapService
+@inject INhapKhoRawService NhapKhoRawService
+@inject ISanPhamService SanPhamService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="container-fluid mt-3">
+    <div class="row mb-3">
+        <div class="col-12">
+            <h3>
+                [PHIEU] Quản lý phiếu nhập kho
+            </h3>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Form thêm/sửa phiếu nhập -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        [+] @(isEditMode ? "Hiệu chỉnh thông tin phiếu nhập" : "Thêm phiếu nhập mới")
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">
+                            [!] @errorMessage
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success">
+                            [OK] @successMessage
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Số phiếu nhập <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" @bind="SoPhieuNhap" 
+                               placeholder="Nhập số phiếu (vd: PN001)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Kho <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="SelectedKhoId">
+                            <option value="">-- Chọn kho --</option>
+                            @if (danhSachKho != null)
+                            {
+                                @foreach (var kho in danhSachKho)
+                                {
+                                    <option value="@kho.Kho_Id">@kho.Ten_Kho</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Nhà cung cấp <span class="text-danger">*</span></label>
+                        <select class="form-select" @bind="SelectedNCCId">
+                            <option value="">-- Chọn nhà cung cấp --</option>
+                            @if (danhSachNCC != null)
+                            {
+                                @foreach (var ncc in danhSachNCC)
+                                {
+                                    <option value="@ncc.Id">@ncc.Ten_NCC</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ngày nhập kho <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" @bind="NgayNhapKho" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea class="form-control" rows="3" @bind="GhiChu" 
+                                  placeholder="Nhập ghi chú (tùy chọn)"></textarea>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" @onclick="@(isEditMode ? CapNhatThongTinPhieu : ThemPhieuNhap)" disabled="@IsProcessing">
+                            @if (IsProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Đang xử lý...</span>
+                            }
+                            else
+                            {
+                                <span>@(isEditMode ? "[SAVE] Cập nhật thông tin" : "[+] Thêm phiếu nhập")</span>
+                            }
+                        </button>
+                        
+                        @if (isEditMode)
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="HuyHieuChinh">
+                                [X] Hủy hiệu chỉnh
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Danh sách phiếu nhập -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-info d-flex justify-content-between align-items-center text-white">
+                    <h5 class="mb-0">
+                        [LIST] Danh sách phiếu nhập
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control" style="width: 200px;" 
+                               placeholder="Tìm kiếm..." @bind="searchKeyword" @onkeypress="OnSearchKeyPress" />
+                        <button class="btn btn-sm btn-light" @onclick="SearchPhieuNhap">
+                            [FIND]
+                        </button>
+                        <button class="btn btn-sm btn-light" @onclick="LoadData">
+                            [RELOAD]
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (IsLoading)
+                    {
+                        <div class="p-3 text-center">
+                            <div class="spinner-border text-primary"></div>
+                            <p>Đang tải dữ liệu...</p>
+                        </div>
+                    }
+                    else if (danhSachPhieuNhap == null || !danhSachPhieuNhap.Any())
+                    {
+                        <div class="alert alert-info">
+                            [INFO] Chưa có phiếu nhập nào. Vui lòng thêm mới.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table-striped table-hover table">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>STT</th>
+                                        <th>Số phiếu</th>
+                                        <th>Kho</th>
+                                        <th>Nhà cung cấp</th>
+                                        <th>Ngày nhập</th>
+                                        <th>Ghi chú</th>
+                                        <th class="text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{int stt = 1;}
+                                    @foreach (var item in danhSachPhieuNhap)
+                                    {
+                                        <tr>
+                                            <td>@stt</td>
+                                            <td>
+                                                <span class="fw-bold text-primary">@item.So_Phieu_Nhap_Kho</span>
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var kho = danhSachKho?.FirstOrDefault(k => k.Kho_Id == item.Kho_ID);
+                                                }
+                                                @(kho?.Ten_Kho ?? "N/A")
+                                            </td>
+                                            <td>
+                                                @{
+                                                    var ncc = danhSachNCC?.FirstOrDefault(n => n.Id == item.NCC_ID);
+                                                }
+                                                @(ncc?.Ten_NCC ?? "N/A")
+                                            </td>
+                                            <td>@item.Ngay_Nhap_Kho.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(item.Ghi_Chu))
+                                                {
+                                                    @item.Ghi_Chu
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">--</span>
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-info me-1" 
+                                                            @onclick="() => XemChiTiet(item)"
+                                                            title="Xem chi tiết">
+                                                            [VIEW]
+                                                        </button>
+                                                        <button class="btn btn-sm btn-warning me-1" 
+                                                                @onclick="() => HieuChinhThongTinPhieu(item)"
+                                                                title="Hiệu chỉnh thông tin phiếu">
+                                                            [EDIT]
+                                                        </button>
+                                                        <button class="btn btn-sm btn-success me-1" 
+                                                                @onclick="() => HieuChinhChiTietPhieu(item)"
+                                                                title="Hiệu chỉnh chi tiết phiếu">
+                                                            [DETAIL]
+                                                    </button>
+                                                    <button class="btn btn-sm btn-primary me-1" 
+                                                            @onclick="() => InPhieu(item)"
+                                                            title="In phiếu">
+                                                            [PRINT]
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger" 
+                                                            @onclick="() => ConfirmDelete(item)"
+                                                            title="Xóa phiếu">
+                                                            [DEL]
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        stt++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal xác nhận xóa -->
+    @if (showDeleteConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            [!] Xác nhận xóa phiếu nhập
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc chắn muốn xóa phiếu nhập <strong>"@currentDeleteItem?.So_Phieu_Nhap_Kho"</strong>?</p>
+                        <div class="alert alert-warning">
+                            [INFO] <strong>Lưu ý:</strong> Thao tác này sẽ xóa cả chi tiết phiếu nhập và không thể hoàn tác.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">
+                            [X] Hủy
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="DeleteConfirmed" disabled="@IsProcessing">
+                            @if (IsProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Đang xóa...</span>
+                            }
+                            else
+                            {
+                                <span>[DEL] Xóa</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modal xem chi tiết -->
+    @if (showDetailModal && selectedPhieu != null)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">
+                            [INFO] Chi tiết phiếu nhập: @selectedPhieu.So_Phieu_Nhap_Kho
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CloseDetailModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Số phiếu:</label>
+                                    <p class="form-control-plaintext">@selectedPhieu.So_Phieu_Nhap_Kho</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Kho:</label>
+                                    <p class="form-control-plaintext">
+                                        @{
+                                            var selectedKho = danhSachKho?.FirstOrDefault(k => k.Kho_Id == selectedPhieu.Kho_ID);
+                                        }
+                                        @(selectedKho?.Ten_Kho ?? "N/A")
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Nhà cung cấp:</label>
+                                    <p class="form-control-plaintext">
+                                        @{
+                                            var selectedNCC = danhSachNCC?.FirstOrDefault(n => n.Id == selectedPhieu.NCC_ID);
+                                        }
+                                        @(selectedNCC?.Ten_NCC ?? "N/A")
+                                    </p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ngày nhập:</label>
+                                    <p class="form-control-plaintext">@selectedPhieu.Ngay_Nhap_Kho.ToString("dd/MM/yyyy")</p>
+                                </div>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(selectedPhieu.Ghi_Chu))
+                        {
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Ghi chú:</label>
+                                <p class="form-control-plaintext">@selectedPhieu.Ghi_Chu</p>
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseDetailModal">
+                            [X] Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modal hiệu chỉnh chi tiết phiếu nhập -->
+    @if (showChiTietModal && selectedPhieuForChiTiet != null)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            [DETAIL] Hiệu chỉnh chi tiết phiếu nhập: @selectedPhieuForChiTiet.So_Phieu_Nhap_Kho
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="CloseChiTietModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Khung thông tin phiếu nhập -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">[INFO] Thông tin phiếu nhập</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <strong>Số phiếu:</strong><br>
+                                        <span class="text-primary">@selectedPhieuForChiTiet.So_Phieu_Nhap_Kho</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Kho:</strong><br>
+                                        @{
+                                            var khoInfo = danhSachKho?.FirstOrDefault(k => k.Kho_Id == selectedPhieuForChiTiet.Kho_ID);
+                                        }
+                                        <span>@(khoInfo?.Ten_Kho ?? "N/A")</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Nhà cung cấp:</strong><br>
+                                        @{
+                                            var nccInfo = danhSachNCC?.FirstOrDefault(n => n.Id == selectedPhieuForChiTiet.NCC_ID);
+                                        }
+                                        <span>@(nccInfo?.Ten_NCC ?? "N/A")</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Ngày nhập:</strong><br>
+                                        <span>@selectedPhieuForChiTiet.Ngay_Nhap_Kho.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form thêm/sửa chi tiết -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">@(isEditingChiTiet ? "[EDIT] Sửa chi tiết" : "[+] Thêm chi tiết")</h6>
+                            </div>
+                            <div class="card-body">
+                                @if (!string.IsNullOrEmpty(chiTietErrorMessage))
+                                {
+                                    <div class="alert alert-danger">
+                                        [!] @chiTietErrorMessage
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(chiTietSuccessMessage))
+                                {
+                                    <div class="alert alert-success">
+                                        [OK] @chiTietSuccessMessage
+                                    </div>
+                                }
+
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Sản phẩm <span class="text-danger">*</span></label>
+                                        <select class="form-select" @bind="selectedSanPhamId" disabled="@isEditingChiTiet">
+                                            <option value="">-- Chọn sản phẩm --</option>
+                                            @if (danhSachSanPham != null)
+                                            {
+                                                @foreach (var sp in danhSachSanPham)
+                                                {
+                                                    <option value="@sp.Id">@sp.Ma_San_Pham - @sp.Ten_San_Pham</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Số lượng <span class="text-danger">*</span></label>
+                                        <input type="number" class="form-control" @bind="soLuongNhap" min="1" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Đơn giá <span class="text-danger">*</span></label>
+                                        <input type="number" class="form-control" @bind="donGiaNhap" min="0" step="0.01" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">&nbsp;</label>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn @(isEditingChiTiet ? "btn-warning" : "btn-success")" 
+                                                    @onclick="@(isEditingChiTiet ? CapNhatChiTiet : ThemChiTiet)" disabled="@IsProcessingChiTiet">
+                                                @if (IsProcessingChiTiet)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@(isEditingChiTiet ? "[SAVE]" : "[+]")</span>
+                                                }
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                @if (isEditingChiTiet)
+                                {
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <button type="button" class="btn btn-secondary btn-sm" @onclick="HuyChinhSuaChiTiet">
+                                                [X] Hủy chỉnh sửa
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Danh sách chi tiết -->
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h6 class="mb-0">[LIST] Danh sách chi tiết phiếu nhập</h6>
+                            </div>
+                            <div class="card-body">
+                                @if (IsLoadingChiTiet)
+                                {
+                                    <div class="text-center p-3">
+                                        <div class="spinner-border text-primary"></div>
+                                        <p>Đang tải chi tiết...</p>
+                                    </div>
+                                }
+                                else if (danhSachChiTiet == null || !danhSachChiTiet.Any())
+                                {
+                                    <div class="alert alert-info">
+                                        [INFO] Chưa có chi tiết nào. Vui lòng thêm mới.
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>STT</th>
+                                                    <th>Mã sản phẩm</th>
+                                                    <th>Tên sản phẩm</th>
+                                                    <th>Số lượng</th>
+                                                    <th>Đơn giá</th>
+                                                    <th>Trị giá</th>
+                                                    <th class="text-center">Thao tác</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @{int sttChiTiet = 1;}
+                                                @foreach (var chiTiet in danhSachChiTiet)
+                                                {
+                                                    <tr>
+                                                        <td>@sttChiTiet</td>
+                                                        <td>
+                                                            @{
+                                                                var sanPham = danhSachSanPham?.FirstOrDefault(sp => sp.Id == chiTiet.San_Pham_ID);
+                                                            }
+                                                            <span class="fw-bold">@(sanPham?.Ma_San_Pham ?? "N/A")</span>
+                                                        </td>
+                                                        <td>@(sanPham?.Ten_San_Pham ?? "N/A")</td>
+                                                        <td>@chiTiet.SL_Nhap.ToString("N0")</td>
+                                                        <td>@chiTiet.Don_Gia_Nhap.ToString("N0") VNĐ</td>
+                                                        <td class="fw-bold text-success">@((chiTiet.SL_Nhap * chiTiet.Don_Gia_Nhap).ToString("N0")) VNĐ</td>
+                                                        <td class="text-center">
+                                                            <div class="btn-group" role="group">
+                                                                <button class="btn btn-sm btn-warning" 
+                                                                        @onclick="() => ChinhSuaChiTiet(chiTiet)"
+                                                                        title="Chỉnh sửa">
+                                                                    [EDIT]
+                                                                </button>
+                                                                <button class="btn btn-sm btn-danger" 
+                                                                        @onclick="() => XacNhanXoaChiTiet(chiTiet)"
+                                                                        title="Xóa">
+                                                                    [DEL]
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    sttChiTiet++;
+                                                }
+                                            </tbody>
+                                            <tfoot class="table-light">
+                                                <tr>
+                                                    <th colspan="5" class="text-end">Tổng cộng:</th>
+                                                    <th class="text-success">@tongTriGia.ToString("N0") VNĐ</th>
+                                                    <th></th>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseChiTietModal">
+                            [X] Đóng
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modal xác nhận xóa chi tiết -->
+    @if (showDeleteChiTietConfirm)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            [!] Xác nhận xóa chi tiết
+                        </h5>
+                        <button type="button" class="btn-close" @onclick="HuyXoaChiTiet"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Bạn có chắc chắn muốn xóa chi tiết này?</p>
+                        @if (currentDeleteChiTiet != null)
+                        {
+                            var sanPham = danhSachSanPham?.FirstOrDefault(sp => sp.Id == currentDeleteChiTiet.San_Pham_ID);
+                            <div class="alert alert-info">
+                                <strong>Sản phẩm:</strong> @(sanPham?.Ma_San_Pham ?? "N/A") - @(sanPham?.Ten_San_Pham ?? "N/A")<br>
+                                <strong>Số lượng:</strong> @currentDeleteChiTiet.SL_Nhap<br>
+                                <strong>Đơn giá:</strong> @currentDeleteChiTiet.Don_Gia_Nhap.ToString("N0") VNĐ
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HuyXoaChiTiet">
+                            [X] Hủy
+                        </button>
+                        <button type="button" class="btn btn-danger" @onclick="XacNhanXoaChiTietFinal" disabled="@IsProcessingChiTiet">
+                            @if (IsProcessingChiTiet)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Đang xóa...</span>
+                            }
+                            else
+                            {
+                                <span>[DEL] Xóa</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<NhapKho> danhSachPhieuNhap = new();
+    private List<Kho> danhSachKho = new();
+    private List<NhaCungCap> danhSachNCC = new();
+    private List<SanPham> danhSachSanPham = new();
+    private List<NhapKhoRaw> danhSachChiTiet = new();
+    
+    private bool IsLoading = true;
+    private bool IsProcessing = false;
+    private bool IsLoadingChiTiet = false;
+    private bool IsProcessingChiTiet = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private string searchKeyword = "";
+    
+    // Form variables
+    private string SoPhieuNhap = "";
+    private string SelectedKhoId = "";
+    private string SelectedNCCId = "";
+    private DateTime NgayNhapKho = DateTime.Today;
+    private string GhiChu = "";
+    
+    // Edit mode
+    private bool isEditMode = false;
+    private NhapKho? currentEditItem;
+    private XNK_Nhap_Kho? currentEditItemXNK;
+    
+    // Delete confirmation
+    private bool showDeleteConfirm = false;
+    private NhapKho? currentDeleteItem;
+    
+    // Detail modal
+    private bool showDetailModal = false;
+    private NhapKho? selectedPhieu;
+    
+    // Chi tiết modal
+    private bool showChiTietModal = false;
+    private NhapKho? selectedPhieuForChiTiet;
+    private string chiTietErrorMessage = "";
+    private string chiTietSuccessMessage = "";
+    
+    // Chi tiết form
+    private string selectedSanPhamId = "";
+    private int soLuongNhap = 0;
+    private double donGiaNhap = 0;
+    private bool isEditingChiTiet = false;
+    private NhapKhoRaw? currentEditChiTiet;
+    
+    // Delete chi tiết
+    private bool showDeleteChiTietConfirm = false;
+    private NhapKhoRaw? currentDeleteChiTiet;
+    
+    private double tongTriGia => danhSachChiTiet?.Sum(x => x.SL_Nhap * x.Don_Gia_Nhap) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadKhoAndNCC();
+        await LoadSanPham();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            IsLoading = true;
+            danhSachPhieuNhap = await NhapKhoService.GetAllAsync();
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadKhoAndNCC()
+    {
+        try
+        {
+            danhSachKho = await KhoService.GetAllAsync();
+            danhSachNCC = await NhaCungCapService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải danh sách kho/NCC: {ex.Message}";
+        }
+    }
+
+    private async Task LoadSanPham()
+    {
+        try
+        {
+            danhSachSanPham = await SanPhamService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải danh sách sản phẩm: {ex.Message}";
+        }
+    }
+
+    private async Task LoadChiTietPhieu(int nhapKhoId)
+    {
+        try
+        {
+            IsLoadingChiTiet = true;
+            danhSachChiTiet = await NhapKhoRawService.GetByPhieuIdAsync(nhapKhoId);
+            IsLoadingChiTiet = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            chiTietErrorMessage = $"Lỗi khi tải chi tiết: {ex.Message}";
+            IsLoadingChiTiet = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ThemPhieuNhap()
+    {
+        try
+        {
+            IsProcessing = true;
+            errorMessage = "";
+            successMessage = "";
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(SoPhieuNhap))
+            {
+                errorMessage = "Số phiếu nhập không được để trống";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedKhoId) || !int.TryParse(SelectedKhoId, out int khoId))
+            {
+                errorMessage = "Vui lòng chọn kho";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedNCCId) || !int.TryParse(SelectedNCCId, out int nccId))
+            {
+                errorMessage = "Vui lòng chọn nhà cung cấp";
+                return;
+            }
+
+            if (NgayNhapKho == default(DateTime))
+            {
+                errorMessage = "Ngày nhập kho không được để trống";
+                return;
+            }
+
+            var phieuNhap = new NhapKho
+            {
+                So_Phieu_Nhap_Kho = SoPhieuNhap.Trim(),
+                Kho_ID = khoId,
+                NCC_ID = nccId,
+                Ngay_Nhap_Kho = NgayNhapKho,
+                Ghi_Chu = string.IsNullOrWhiteSpace(GhiChu) ? "" : GhiChu.Trim()
+            };
+
+            await NhapKhoService.AddAsync(phieuNhap);
+            
+            // Thêm vào bảng XNK_Nhap_Kho
+            var xnkPhieu = new XNK_Nhap_Kho
+            {
+                So_Phieu_Nhap_Kho = SoPhieuNhap.Trim(),
+                Kho = khoId.ToString(),
+                NCC = nccId.ToString(),
+                Ngay_Nhap_Kho = NgayNhapKho
+            };
+            await XNKNhapKhoService.AddAsync(xnkPhieu);
+            
+            successMessage = "Thêm phiếu nhập thành công";
+            
+            // Reset form
+            ResetForm();
+
+            // Reload data
+            await LoadData();
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+            successMessage = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi thêm phiếu nhập: {ex.Message}";
+            successMessage = "";
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HieuChinhThongTinPhieu(NhapKho phieu)
+    {
+        currentEditItem = phieu;
+        isEditMode = true;
+        
+        // Fill form with current data
+        SoPhieuNhap = phieu.So_Phieu_Nhap_Kho;
+        SelectedKhoId = phieu.Kho_ID.ToString();
+        SelectedNCCId = phieu.NCC_ID.ToString();
+        NgayNhapKho = phieu.Ngay_Nhap_Kho;
+        GhiChu = phieu.Ghi_Chu ?? "";
+        
+        errorMessage = "";
+        successMessage = "";
+        StateHasChanged();
+    }
+
+    private async Task CapNhatThongTinPhieu()
+    {
+        if (currentEditItem == null) return;
+
+        try
+        {
+            IsProcessing = true;
+            errorMessage = "";
+            successMessage = "";
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(SoPhieuNhap))
+            {
+                errorMessage = "Số phiếu nhập không được để trống";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedKhoId) || !int.TryParse(SelectedKhoId, out int khoId))
+            {
+                errorMessage = "Vui lòng chọn kho";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SelectedNCCId) || !int.TryParse(SelectedNCCId, out int nccId))
+            {
+                errorMessage = "Vui lòng chọn nhà cung cấp";
+                return;
+            }
+
+            if (NgayNhapKho == default(DateTime))
+            {
+                errorMessage = "Ngày nhập kho không được để trống";
+                return;
+            }
+
+            // Update current item
+            currentEditItem.So_Phieu_Nhap_Kho = SoPhieuNhap.Trim();
+            currentEditItem.Kho_ID = khoId;
+            currentEditItem.NCC_ID = nccId;
+            currentEditItem.Ngay_Nhap_Kho = NgayNhapKho;
+            currentEditItem.Ghi_Chu = string.IsNullOrWhiteSpace(GhiChu) ? "" : GhiChu.Trim();
+
+            await NhapKhoService.UpdateAsync(currentEditItem);
+            
+            // Update XNK table
+            var xnkPhieu = await XNKNhapKhoService.GetByIdAsync(currentEditItem.So_Phieu_Nhap_Kho);
+            if (xnkPhieu != null)
+            {
+                xnkPhieu.Kho = khoId.ToString();
+                xnkPhieu.NCC = nccId.ToString();
+                xnkPhieu.Ngay_Nhap_Kho = NgayNhapKho;
+                await XNKNhapKhoService.UpdateAsync(xnkPhieu);
+            }
+            
+            successMessage = "Cập nhật thông tin phiếu nhập thành công";
+            
+            // Reset form and exit edit mode
+            ResetForm();
+            isEditMode = false;
+            currentEditItem = null;
+
+            // Reload data
+            await LoadData();
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            successMessage = "";
+            StateHasChanged();
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+            successMessage = "";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi cập nhật phiếu nhập: {ex.Message}";
+            successMessage = "";
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HieuChinhChiTietPhieu(NhapKho phieu)
+    {
+        selectedPhieuForChiTiet = phieu;
+        showChiTietModal = true;
+        ResetChiTietForm();
+        await LoadChiTietPhieu(phieu.Id);
+    }
+
+    private async Task ThemChiTiet()
+    {
+        try
+        {
+            IsProcessingChiTiet = true;
+            chiTietErrorMessage = "";
+            chiTietSuccessMessage = "";
+
+            // Validation
+            if (string.IsNullOrWhiteSpace(selectedSanPhamId) || !int.TryParse(selectedSanPhamId, out int sanPhamId))
+            {
+                chiTietErrorMessage = "Vui lòng chọn sản phẩm";
+                return;
+            }
+
+            if (soLuongNhap <= 0)
+            {
+                chiTietErrorMessage = "Số lượng phải lớn hơn 0";
+                return;
+            }
+
+            if (donGiaNhap <= 0)
+            {
+                chiTietErrorMessage = "Đơn giá phải lớn hơn 0";
+                return;
+            }
+
+            // Kiểm tra sản phẩm đã tồn tại
+            var exists = await NhapKhoRawService.ExistsByProductAsync(selectedPhieuForChiTiet.Id, sanPhamId);
+            if (exists)
+            {
+                chiTietErrorMessage = "Sản phẩm này đã có trong phiếu nhập";
+                return;
+            }
+
+            var chiTiet = new NhapKhoRaw
+            {
+                Nhap_Kho_ID = selectedPhieuForChiTiet.Id,
+                San_Pham_ID = sanPhamId,
+                SL_Nhap = soLuongNhap,
+                Don_Gia_Nhap = donGiaNhap
+            };
+
+            await NhapKhoRawService.AddAsync(chiTiet);
+            chiTietSuccessMessage = "Thêm chi tiết thành công";
+            
+            // Reset form
+            ResetChiTietForm();
+            
+            // Reload chi tiết
+            await LoadChiTietPhieu(selectedPhieuForChiTiet.Id);
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            chiTietSuccessMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            chiTietErrorMessage = $"Lỗi khi thêm chi tiết: {ex.Message}";
+            chiTietSuccessMessage = "";
+        }
+        finally
+        {
+            IsProcessingChiTiet = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ChinhSuaChiTiet(NhapKhoRaw chiTiet)
+    {
+        currentEditChiTiet = chiTiet;
+        isEditingChiTiet = true;
+        
+        selectedSanPhamId = chiTiet.San_Pham_ID.ToString();
+        soLuongNhap = chiTiet.SL_Nhap;
+        donGiaNhap = chiTiet.Don_Gia_Nhap;
+        
+        chiTietErrorMessage = "";
+        chiTietSuccessMessage = "";
+        StateHasChanged();
+    }
+
+    private async Task CapNhatChiTiet()
+    {
+        if (currentEditChiTiet == null) return;
+
+        try
+        {
+            IsProcessingChiTiet = true;
+            chiTietErrorMessage = "";
+            chiTietSuccessMessage = "";
+
+            // Validation
+            if (soLuongNhap <= 0)
+            {
+                chiTietErrorMessage = "Số lượng phải lớn hơn 0";
+                return;
+            }
+
+            if (donGiaNhap <= 0)
+            {
+                chiTietErrorMessage = "Đơn giá phải lớn hơn 0";
+                return;
+            }
+
+            // Update chi tiết
+            currentEditChiTiet.SL_Nhap = soLuongNhap;
+            currentEditChiTiet.Don_Gia_Nhap = donGiaNhap;
+
+            await NhapKhoRawService.UpdateAsync(currentEditChiTiet);
+            chiTietSuccessMessage = "Cập nhật chi tiết thành công";
+            
+            // Reset form
+            HuyChinhSuaChiTiet();
+            
+            // Reload chi tiết
+            await LoadChiTietPhieu(selectedPhieuForChiTiet.Id);
+
+            // Auto hide success message after 3 seconds
+            await Task.Delay(3000);
+            chiTietSuccessMessage = "";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            chiTietErrorMessage = $"Lỗi khi cập nhật chi tiết: {ex.Message}";
+            chiTietSuccessMessage = "";
+        }
+        finally
+        {
+            IsProcessingChiTiet = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HuyChinhSuaChiTiet()
+    {
+        isEditingChiTiet = false;
+        currentEditChiTiet = null;
+        ResetChiTietForm();
+        chiTietErrorMessage = "";
+        chiTietSuccessMessage = "";
+        StateHasChanged();
+    }
+
+    private void XacNhanXoaChiTiet(NhapKhoRaw chiTiet)
+    {
+        currentDeleteChiTiet = chiTiet;
+        showDeleteChiTietConfirm = true;
+    }
+
+    private void HuyXoaChiTiet()
+    {
+        showDeleteChiTietConfirm = false;
+        currentDeleteChiTiet = null;
+    }
+
+    private async Task XacNhanXoaChiTietFinal()
+    {
+        if (currentDeleteChiTiet != null)
+        {
+            try
+            {
+                IsProcessingChiTiet = true;
+                await NhapKhoRawService.DeleteAsync(currentDeleteChiTiet.Id);
+                chiTietSuccessMessage = "Xóa chi tiết thành công";
+                chiTietErrorMessage = "";
+                
+                // Reload chi tiết
+                await LoadChiTietPhieu(selectedPhieuForChiTiet.Id);
+                
+                // Auto hide success message after 3 seconds
+                await Task.Delay(3000);
+                chiTietSuccessMessage = "";
+            }
+            catch (Exception ex)
+            {
+                chiTietErrorMessage = $"Lỗi khi xóa chi tiết: {ex.Message}";
+                chiTietSuccessMessage = "";
+            }
+            finally
+            {
+                IsProcessingChiTiet = false;
+                showDeleteChiTietConfirm = false;
+                currentDeleteChiTiet = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void ResetChiTietForm()
+    {
+        selectedSanPhamId = "";
+        soLuongNhap = 0;
+        donGiaNhap = 0;
+        isEditingChiTiet = false;
+        currentEditChiTiet = null;
+    }
+
+    private void CloseChiTietModal()
+    {
+        showChiTietModal = false;
+        selectedPhieuForChiTiet = null;
+        ResetChiTietForm();
+        chiTietErrorMessage = "";
+        chiTietSuccessMessage = "";
+    }
+
+    private void HuyHieuChinh()
+    {
+        isEditMode = false;
+        currentEditItem = null;
+        ResetForm();
+        errorMessage = "";
+        successMessage = "";
+        StateHasChanged();
+    }
+
+    private void ResetForm()
+    {
+        SoPhieuNhap = "";
+        SelectedKhoId = "";
+        SelectedNCCId = "";
+        NgayNhapKho = DateTime.Today;
+        GhiChu = "";
+    }
+
+    private async Task SearchPhieuNhap()
+    {
+        try
+        {
+            IsLoading = true;
+            danhSachPhieuNhap = await NhapKhoService.SearchAsync(searchKeyword);
+            IsLoading = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Lỗi khi tìm kiếm: {ex.Message}";
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchPhieuNhap();
+        }
+    }
+
+    private void XemChiTiet(NhapKho phieu)
+    {
+        selectedPhieu = phieu;
+        showDetailModal = true;
+    }
+
+    private void CloseDetailModal()
+    {
+        showDetailModal = false;
+        selectedPhieu = null;
+    }
+
+    private void ConfirmDelete(NhapKho item)
+    {
+        currentDeleteItem = item;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        currentDeleteItem = null;
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        if (currentDeleteItem != null)
+        {
+            try
+            {
+                IsProcessing = true;
+                await NhapKhoService.RemoveAsync(currentDeleteItem);
+                
+                // Xóa trong bảng XNK nếu có
+                try
+                {
+                    await XNKNhapKhoService.DeleteAsync(currentDeleteItem.So_Phieu_Nhap_Kho);
+                }
+                catch
+                {
+                    // Ignore if not exists in XNK table
+                }
+                
+                successMessage = "Xóa phiếu nhập thành công";
+                errorMessage = "";
+                
+                // Auto hide success message after 3 seconds
+                await Task.Delay(3000);
+                successMessage = "";
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Lỗi khi xóa: {ex.Message}";
+                successMessage = "";
+            }
+            finally
+            {
+                IsProcessing = false;
+                showDeleteConfirm = false;
+                currentDeleteItem = null;
+                await LoadData();
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task InPhieu(NhapKho phieu)
+    {
+        try
+        {
+            var url = $"/in-phieu-nhap/{phieu.So_Phieu_Nhap_Kho}";
+            await JSRuntime.InvokeVoidAsync("window.open", url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Lỗi khi mở trang in: {ex.Message}");
+            // Fallback: navigate trong cùng tab
+            NavigationManager.NavigateTo($"/in-phieu-nhap/{phieu.So_Phieu_Nhap_Kho}");
+        }
+    }
+}

@@ -1,0 +1,122 @@
+/* Existing styles */
+
+/* Print styles */
+@media print {
+    /* Ẩn các thành phần không cần thiết khi in */
+    .no-print {
+        display: none !important;
+    }
+    
+    /* Ẩn navigation bar/sidebar */
+    .sidebar,
+    .nav,
+    .navbar,
+    .navigation,
+    .menu,
+    .top-row,
+    .blazor-error-ui,
+    .page > .sidebar,
+    .page > main > .top-row {
+        display: none !important;
+    }
+    
+    /* Ẩn các thành phần Bootstrap navigation */
+    .navbar-nav,
+    .navbar-brand,
+    .navbar-toggler,
+    .offcanvas,
+    .offcanvas-backdrop {
+        display: none !important;
+    }
+    
+    /* Đảm bảo nội dung in chiếm toàn bộ trang */
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Đảm bảo main content chiếm toàn bộ chiều rộng */
+    .page {
+        display: block !important;
+    }
+    
+    .page > main {
+        margin-left: 0 !important;
+        width: 100% !important;
+    }
+    
+    .page > main > article.content {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .print-area {
+        margin: 0 !important;
+        padding: 15px !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+    
+    /* Ẩn container-fluid padding khi in */
+    .container-fluid {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .table {
+        width: 100% !important;
+        margin-bottom: 1rem;
+        break-inside: auto;
+    }
+    
+    .table th,
+    .table td {
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+    
+    .table-bordered th,
+    .table-bordered td {
+        border: 1px solid #000 !important;
+    }
+    
+    * {
+        color: #000 !important;
+        background: transparent !important;
+    }
+}
+
+.print-area {
+    background: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.print-layout {
+    background: white;
+}
+
+.print-layout .content {
+    background: white;
+    min-height: 100vh;
+}
+
+.print-layout .container-fluid {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+}
+
+.print-layout .print-area {
+    box-shadow: none;
+    margin: 0;
+    padding: 20px;
+}
+
+/* Đảm bảo no-print hoạt động trong mọi layout */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+} 

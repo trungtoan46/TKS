@@ -4,6 +4,7 @@ using TKS.Services.Interfaces;
 using TKS.Services.Implementations;
 using TKS.Services;
 using Microsoft.Extensions.Options;
+using TKS.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,11 @@ builder.Services.AddScoped<ISanPhamService, TKS.Services.SanPhamService>();
 builder.Services.AddScoped<INhaCungCapService, TKS.Services.NhaCungCapService>();
 builder.Services.AddScoped<IKhoService, TKS.Services.KhoService>();
 builder.Services.AddScoped<IKhoUserService, TKS.Services.KhoUserService>();
+builder.Services.AddScoped<INhapKhoService, TKS.Services.NhapKhoService>();
+builder.Services.AddScoped<INhapKhoRawService, TKS.Services.Implementations.NhapKhoRawService>();
+builder.Services.AddScoped<IXNKNhapKhoService, TKS.Services.Implementations.XNKNhapKhoService>();
+builder.Services.AddScoped<IXuatKhoService, TKS.Services.Implementations.XuatKhoService>();
+builder.Services.AddScoped<IXuatKhoRawService, TKS.Services.Implementations.XuatKhoRawService>();
 
 var app = builder.Build();
 
