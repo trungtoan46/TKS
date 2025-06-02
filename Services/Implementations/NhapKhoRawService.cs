@@ -53,5 +53,10 @@ namespace TKS.Services.Implementations
             return await _context.NhapKhoRaws
                 .AnyAsync(x => x.Nhap_Kho_ID == nhapKhoId && x.San_Pham_ID == sanPhamId);
         }
+
+        public async Task<List<NhapKhoRaw>> GetAllAsync()
+        {
+            return _context.NhapKhoRaws.ToList();
+        }
     }
 } 

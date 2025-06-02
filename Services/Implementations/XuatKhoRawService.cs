@@ -53,5 +53,10 @@ namespace TKS.Services.Implementations
             return await _context.XuatKhoRaws
                 .AnyAsync(x => x.Xuat_Kho_ID == xuatKhoId && x.San_Pham_ID == sanPhamId);
         }
+
+        public Task<List<XuatKhoRaw>> GetAllAsync()
+        {
+            throw new NotImplementedException();
+        }
     }
 } 

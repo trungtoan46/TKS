@@ -1,5 +1,189 @@
-﻿<h3>ChiTietHangNhapPage</h3>
+﻿@page "/chi-tiet-hang-nhap"
+@using TKS.Models
+@using TKS.Services.Implementations
+@using TKS.Services.Interfaces
+@rendermode InteractiveServer
+
+@inject IXNKNhapKhoService XNKservice
+@inject INhapKhoService NhapKhoService
+@inject INhapKhoRawService NhapKhoRawService
+@inject ISanPhamService SanPhamService
+@inject INhaCungCapService NhaCungCapService
+@inject IDonViTinhService DonViTinhService
+@inject IJSRuntime JSRuntime
+
+<h3>ChiTietHangNhapPage</h3>
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="startDate" class="form-label">Ngày bắt đầu <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="startDate" name="startDate" @bind="startDate"/>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <label for="endDate" class="form-label">Ngày kết thúc</label>
+            <input type="date" class="form-control" id="endDate" name="endDate"  @bind="endDate" />
+        </div>
+
+        <div class="col-md-2 align-self-center mt-3">
+            <button class="bg-gradient" @onclick=Search>
+                Search
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<div class="container mt-4">
+    @if (filteredChiTietPhieu.Count <= 0)
+    {
+        <div class="alert alert-info">
+            <span>Không tìm thấy sản phẩm</span>
+        </div>
+    }
+    else
+    {
+        
+    <table class="table-bordered table-striped table">
+        <thead class="table-dark">
+            <tr>
+                <th>Ngày nhập</th>
+                <th>Số phiếu nhập</th>
+                <th>Nhà cung cấp</th>
+                <th>Mã sản phẩm</th>
+                <th>Tên sản phẩm</th>
+                <th>SL nhập</th>
+                <th>Đơn giá</th>
+                <th>Trị giá</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in filteredChiTietPhieu)
+            {
+                var phieu = phieuNhap.FirstOrDefault(p => p.Id == item.Nhap_Kho_ID);
+                var sanpham = sanPhams.FirstOrDefault(p => p.Id == item.San_Pham_ID);
+                var ncc = nhaCungCaps?.FirstOrDefault(n => n.Id == phieu?.NCC_ID);
+                var dvt = donViTinhs?.FirstOrDefault(d => d.Id == sanpham?.Don_Vi_Tinh_ID);
+                <tr>
+                    <td>@phieu?.Ngay_Nhap_Kho.ToString("dd/MM/yyyy")</td>
+                    <td>@phieu?.So_Phieu_Nhap_Kho</td>
+                    <td>@ncc?.Ten_NCC</td>
+                    <td>@sanpham?.Ma_San_Pham</td>
+                    <td>@sanpham?.Ten_San_Pham</td>
+                    <td>@item.SL_Nhap  @dvt?.Ten_Don_Vi_Tinh</td>
+                    <td>@item.Don_Gia_Nhap.ToString() VNĐ</td>
+                    <td>@((item.SL_Nhap * item.Don_Gia_Nhap).ToString() ) VNĐ</td>
+                </tr>
+            }
+        </tbody>
+
+
+    </table>
+
+    }
+</div>
 
 @code {
+
+    private List<NhapKho> phieuNhap= new();
+    private List<NhapKhoRaw> chiTietPhieu = new();
+    private List<SanPham> sanPhams = new();
+    private List<NhaCungCap> nhaCungCaps = new();
+    private List<DonViTinh> donViTinhs = new();
+    private string errorMessage = "";
+    private string ncc = "";
+    private List<NhapKhoRaw> filteredChiTietPhieu = new();
+
+    private DateTime? startDate;
+    private DateTime? endDate;
+    private string searchInput = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            await LoadPhieuNhapVaChiTiet();
+            filteredChiTietPhieu = chiTietPhieu;
+
+        }
+        catch(Exception ex)
+        {
+            errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
+        }
+        finally
+        {
+            StateHasChanged();
+
+        }
+    }
+    private async Task LoadPhieuNhapVaChiTiet()
+    {
+        phieuNhap = await NhapKhoService.GetAllAsync();
+        chiTietPhieu = await NhapKhoRawService.GetAllAsync();
+        sanPhams = await SanPhamService.GetAllAsync();
+        nhaCungCaps = await NhaCungCapService.GetAllAsync();
+        donViTinhs = await DonViTinhService.GetAllAsync();
+    }
+
+    private async Task GetSanPhamByID(int id)
+    {
+        await SanPhamService.GetByIdAsync(id);
+    }
+
+    private async Task Search()
+    {
+        var query = chiTietPhieu.AsEnumerable();
+
+        // lọc theo ngày
+        if (startDate.HasValue)
+        {
+            query = query.Where(ct =>
+        {
+            var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
+            return phieu != null && phieu.Ngay_Nhap_Kho.Date >= startDate.Value.Date;
+        });
+        }
+        if (endDate.HasValue)
+        {
+            query = query.Where(ct =>
+        {
+            var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
+            return phieu != null && phieu.Ngay_Nhap_Kho.Date <= endDate.Value.Date;
+        });
+        }
+
+        // lọc theo tìm kiếm
+        if (!string.IsNullOrWhiteSpace(searchInput))
+        {
+            string kw = searchInput.Trim().ToLower();
+
+            query = query.Where(ct =>
+        {
+        var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
+            var sp = sanPhams.FirstOrDefault(s => s.Id == ct.San_Pham_ID);
+
+            bool matchPhieu = (
+                phieu.So_Phieu_Nhap_Kho?.ToLower().Contains(kw) ?? false
+            
+            );
+            
+            bool matchSp = sp != null && (
+                (sp.Ma_San_Pham?.ToLower().Contains(kw) ?? false) ||
+                (sp.Ten_San_Pham?.ToLower().Contains(kw) ?? false)
+            );
+            return matchPhieu || matchSp;
+        });
+
+
+        }
+        filteredChiTietPhieu = query.ToList();
+
+    }
 
 }

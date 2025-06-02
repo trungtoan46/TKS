@@ -58,7 +58,7 @@ namespace TKS.Services.Implementations
                     .ToListAsync();
 
                 if (chiTietList.Any())
-                {
+            {
                     _context.XuatKhoRaws.RemoveRange(chiTietList);
                 }
 

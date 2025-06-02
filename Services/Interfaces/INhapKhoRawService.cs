@@ -6,6 +6,7 @@ namespace TKS.Services.Interfaces
     {
         Task<List<NhapKhoRaw>> GetByPhieuIdAsync(int nhapKhoId);
         Task<NhapKhoRaw?> GetByIdAsync(int id);
+        Task<List<NhapKhoRaw>> GetAllAsync();
         Task AddAsync(NhapKhoRaw chiTiet);
         Task UpdateAsync(NhapKhoRaw chiTiet);
         Task DeleteAsync(int id);

@@ -18,10 +18,8 @@ namespace TKS.Models
         public required string Ten_San_Pham { get; set; }
 
         public int Loai_San_Pham_ID { get; set; }
-        public LoaiSanPham? loaiSanPham { get; set; }
 
         public int Don_Vi_Tinh_ID { get; set; }
-        public DonViTinh? donViTinh { get; set; }
 
         public string? GhiChu { get; set; }
         

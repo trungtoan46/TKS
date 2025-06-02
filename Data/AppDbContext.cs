@@ -29,21 +29,6 @@ namespace TKS.Data
                 .HasIndex(sp => new { sp.Loai_San_Pham_ID, sp.Ten_San_Pham, sp.Ma_San_Pham, sp.Don_Vi_Tinh_ID })
                 .IsUnique();
 
-            modelBuilder.Entity<SanPham>()
-                .HasOne(sp => sp.donViTinh)
-                .WithMany()
-                .HasForeignKey(sp => sp.Don_Vi_Tinh_ID)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .IsRequired();
-
-            modelBuilder.Entity<SanPham>()
-                .HasOne(sp => sp.loaiSanPham)
-                .WithMany()
-                .HasForeignKey(sp => sp.Loai_San_Pham_ID)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .IsRequired();
-
-
             modelBuilder.Entity<DonViTinh>()
                 .HasIndex(dvt => dvt.Ten_Don_Vi_Tinh)
                 .IsUnique();

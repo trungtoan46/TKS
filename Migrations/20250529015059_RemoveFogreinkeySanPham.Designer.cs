@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TKS.Data;
 
@@ -11,9 +12,11 @@ using TKS.Data;
 namespace TKS.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250529015059_RemoveFogreinkeySanPham")]
+    partial class RemoveFogreinkeySanPham
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -228,6 +231,8 @@ namespace TKS.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Don_Vi_Tinh_ID");
+
                     b.HasIndex("Loai_San_Pham_ID", "Ten_San_Pham", "Ma_San_Pham", "Don_Vi_Tinh_ID")
                         .IsUnique();
 
@@ -305,6 +310,23 @@ namespace TKS.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("tbl_DM_Xuat_Kho_Raw_Data");
+                });
+
+            modelBuilder.Entity("TKS.Models.SanPham", b =>
+                {
+                    b.HasOne("TKS.Models.DonViTinh", "donViTinh")
+                        .WithMany()
+                        .HasForeignKey("Don_Vi_Tinh_ID")
+                        .IsRequired();
+
+                    b.HasOne("TKS.Models.LoaiSanPham", "loaiSanPham")
+                        .WithMany()
+                        .HasForeignKey("Loai_San_Pham_ID")
+                        .IsRequired();
+
+                    b.Navigation("donViTinh");
+
+                    b.Navigation("loaiSanPham");
                 });
 #pragma warning restore 612, 618
         }
