@@ -1,0 +1,220 @@
+﻿@page "/xuat-nhap-ton";
+@using Models
+@using Services.Implementations
+@using Services.Interfaces
+@rendermode InteractiveServer
+@inject INhapKhoService nhapKhoService
+@inject INhapKhoRawService nhapKhoRawService
+@inject IXuatKhoService xuatKhoService
+@inject IXuatKhoRawService xuatKhoRawService
+@inject ISanPhamService sanPhamService
+@inject INhaCungCapService nhaCungCapService
+@inject IDonViTinhService donViTinhService
+@inject INhapKhoService nhapKhoService
+@inject IXuatKhoService xuatKhoService
+
+
+<h3>XuatNhapTonPage</h3>
+
+<div class="container mt-3">
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label for="startDate" class="form-label">Ngày bắt đầu <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="startDate" name="startDate" @bind="startDate" />
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <label for="endDate" class="form-label">Ngày kết thúc</label>
+            <input type="date" class="form-control" id="endDate" name="endDate" @bind="endDate" />
+        </div>
+
+        <div class="col-md-2 align-self-center mt-3">
+            <button class="bg-gradient" @onclick=Search>
+                Search
+            </button>
+        </div>
+    </div>
+
+    
+
+</div>
+
+<div class="container mt-4">
+
+    @if(endDate < startDate)
+    {
+        <div class="alert alert-info">
+            <span>Số ngày bắt đầu phải nhỏ hơn ngày kết thúc</span>
+        </div>
+    }
+
+    else if (danhSachTonKho.Count <= 0)
+    {
+        <div class="alert alert-info">
+            <span>Không tìm thấy sản phẩm</span>
+        </div>
+    }
+    else
+    {
+
+        <table class="table-bordered table-striped table">
+            <thead class="table-dark">
+                <tr>
+                    <th>Mã sản phẩm</th>
+                    <th>Tên sản phẩm</th>
+                    <th>SL đầu kỳ</th>
+                    <th>SL nhập</th>
+                    <th>SL xuất</th>
+                    <th>SL cuối kỳ</th>
+
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in danhSachTonKho)
+                {
+                    @* var sanpham = sanPhams.FirstOrDefault(s => s.Id == item.Ma_San_Pham) *@
+                    <tr>
+                        <td>@item.Ma_San_Pham</td>
+                        <td>@item.Ten_San_Pham</td>
+                        <td>@item?.SL_Dau_Ky</td>
+                        <td>@item?.SL_Nhap</td>
+                        <td>@item?.SL_Xuat</td>
+                        <td>@item?.SL_Cuoi_Ky</td>
+
+                    </tr>
+                }
+            </tbody>
+
+
+        </table>
+
+    }
+</div>
+
+
+@code {
+    private List<SanPham> sanPhams;
+    private List<XuatKhoRaw> chiTietXuatKho;
+    private List<NhapKhoRaw> chiTietNhapKho;
+    private List<NhapKho> dsNhapKho;
+    private List<XuatKho> dsXuatKho;
+
+    private int soNgay;
+    private DateTime? startDate;
+    private DateTime? endDate;
+    private string searchInput;
+    private List<TonKhoViewModel> danhSachTonKho = new();
+    private List<TonKhoViewModel> chiTietTon;
+    private List<TonKhoViewModel> filteredSanPham;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await Search();
+    } 
+
+
+    private async Task TinhNgay()
+    {
+        if (endDate > startDate)
+        {
+            soNgay = (endDate - startDate)?.Days ?? 0;
+        }
+        else
+        {
+            soNgay = 0;
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadData()
+    {
+
+        startDate = DateTime.Today.AddDays(-7);
+        endDate = DateTime.Today;
+
+        sanPhams = await sanPhamService.GetAllAsync();
+        chiTietXuatKho = await xuatKhoRawService.GetAllAsync();
+        chiTietNhapKho = await nhapKhoRawService.GetAllAsync();
+        dsNhapKho = await nhapKhoService.GetAllAsync();
+        dsXuatKho = await xuatKhoService.GetAllAsync();
+    }
+
+    private async Task GetQTYSanPham()
+    {
+        var sumSanPham = chiTietNhapKho
+        .GroupBy(nk => nk.San_Pham_ID)
+        .Select(group => new
+        {
+            sanPhamId = group.Key,
+            tenSanPham = sanPhams.FirstOrDefault(sp => sp.Id == group.Key)?.Ten_San_Pham ?? "Không rõ",
+            tongSoLuong = group.Sum(x => x.SL_Nhap)
+        }).ToList();
+    }
+
+    private async Task Search()
+    {
+        await TinhNgay();
+        var nhapFilteredId = dsNhapKho
+                           .Where(n => !startDate.HasValue || n.Ngay_Nhap_Kho.Date >= startDate.Value.Date)
+                           .Where(n => !endDate.HasValue || n.Ngay_Nhap_Kho.Date <= endDate.Value.Date)
+                           .Select(n => n.Id)
+                       .    ToList();
+        var xuatFilteredId = dsXuatKho
+                           .Where(n => !startDate.HasValue || n.Ngay_Xuat_Kho.Date >= startDate.Value.Date)
+                           .Where(n => !endDate.HasValue || n.Ngay_Xuat_Kho.Date <= endDate.Value.Date)
+                           .Select(n => n.ID)
+                           .ToList();
+
+        var chiTietNhapFiltered = chiTietNhapKho
+                          .Where(r => nhapFilteredId.Contains(r.Nhap_Kho_ID))
+                          .ToList();
+
+        var chiTietXuatFiltered = chiTietXuatKho
+                          .Where(r => xuatFilteredId.Contains(r.Xuat_Kho_ID))
+                          .ToList();
+
+        var chiTietTonList = sanPhams.Select(sp =>
+        {
+
+            var slNhapTruoc = chiTietNhapKho
+                  .Where(n =>
+                    {
+                        var phieuNhap = dsNhapKho.FirstOrDefault(p => p.Id == n.Nhap_Kho_ID);
+                        return phieuNhap != null && startDate.HasValue && phieuNhap.Ngay_Nhap_Kho.Date < startDate.Value.Date && n.San_Pham_ID == sp.Id;
+                    })
+                  .Sum(n => n.SL_Nhap);
+
+            var slXuatTruoc = chiTietXuatKho
+                    .Where(x =>
+                    {
+                        var phieuXuat = dsXuatKho.FirstOrDefault(p => p.ID == x.Xuat_Kho_ID);
+                        return phieuXuat != null && startDate.HasValue && phieuXuat.Ngay_Xuat_Kho.Date < startDate.Value.Date && x.San_Pham_ID == sp.Id;
+                    })
+                    .Sum(x => x.SL_Xuat);
+
+            var slDauKy = slNhapTruoc - slXuatTruoc;
+
+            var slNhap = chiTietNhapFiltered
+                .Where(n => n.San_Pham_ID == sp.Id)
+                .Sum(n => n.SL_Nhap);
+
+            var slXuat = chiTietXuatFiltered
+                .Where(n => n.San_Pham_ID == sp.Id)
+                .Sum(n => n.SL_Xuat);
+            return new TonKhoViewModel
+                {
+                    Ma_San_Pham = sp.Ma_San_Pham,
+                    Ten_San_Pham = sp.Ten_San_Pham,
+                    SL_Nhap = slNhap,
+                    SL_Xuat = slXuat,
+                    SL_Dau_Ky = slDauKy
+                };
+
+        }).ToList();
+
+        danhSachTonKho = chiTietTonList;
+    }
+
+}

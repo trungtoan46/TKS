@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TKS.Data;
 
@@ -11,9 +12,11 @@ using TKS.Data;
 namespace TKS.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250604011749_Updatee")]
+    partial class Updatee
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -253,23 +256,6 @@ namespace TKS.Migrations
                     b.HasKey("So_Phieu_Nhap_Kho");
 
                     b.ToTable("tbl_XNK_Nhap_Kho");
-                });
-
-            modelBuilder.Entity("TKS.Models.XNK_Xuat_Kho", b =>
-                {
-                    b.Property<string>("So_Phieu_Xuat_Kho")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<string>("Kho")
-                        .IsRequired()
-                        .HasColumnType("longtext");
-
-                    b.Property<DateTime>("Ngay_Xuat_Kho")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("So_Phieu_Xuat_Kho");
-
-                    b.ToTable("tbl_XNK_Xuat_Kho");
                 });
 
             modelBuilder.Entity("TKS.Models.XuatKho", b =>

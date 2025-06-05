@@ -56,7 +56,7 @@ namespace TKS.Services.Implementations
 
         public Task<List<XuatKhoRaw>> GetAllAsync()
         {
-            throw new NotImplementedException();
+            return _context.XuatKhoRaws.ToListAsync();
         }
     }
 } 

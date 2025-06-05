@@ -17,6 +17,7 @@ namespace TKS.Data
         public DbSet<XNK_Nhap_Kho> XNK_Nhap_Khos { get; set; }
         public DbSet<XuatKho> XuatKhos { get; set; }
         public DbSet<XuatKhoRaw> XuatKhoRaws { get; set; }
+        public DbSet<XNK_Xuat_Kho> xNK_Xuat_Khos { get; set; }
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) 
         {
             

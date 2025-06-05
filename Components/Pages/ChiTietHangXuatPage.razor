@@ -1,29 +1,29 @@
-﻿@page "/chi-tiet-hang-nhap"
+﻿@page "/chi-tiet-hang-xuat"
 @using TKS.Models
 @using TKS.Services.Implementations
 @using TKS.Services.Interfaces
 @rendermode InteractiveServer
 
 @inject IXNKNhapKhoService XNKservice
-@inject INhapKhoService NhapKhoService
-@inject INhapKhoRawService NhapKhoRawService
 @inject ISanPhamService SanPhamService
 @inject INhaCungCapService NhaCungCapService
 @inject IDonViTinhService DonViTinhService
+@inject IXuatKhoService xuatKhoService
+@inject IXuatKhoRawService xuatKhoRawService
 @inject IJSRuntime JSRuntime
 
-<h3>ChiTietHangNhapPage</h3>
+<h3>ChiTietHangXuatPage</h3>
 
 <div class="container mt-3">
     <div class="row">
-        <div class="col-md-4 mb-3">
+        <div class="col-md-4 mb-3"> 
             <label for="startDate" class="form-label">Ngày bắt đầu <span class="text-danger">*</span></label>
-            <input type="date" class="form-control" id="startDate" name="startDate" @bind="startDate"/>
+            <input type="date" class="form-control" id="startDate" name="startDate" @bind="startDate" />
         </div>
 
         <div class="col-md-4 mb-3">
             <label for="endDate" class="form-label">Ngày kết thúc</label>
-            <input type="date" class="form-control" id="endDate" name="endDate"  @bind="endDate" />
+            <input type="date" class="form-control" id="endDate" name="endDate" @bind="endDate" />
         </div>
 
         <div class="col-md-2 align-self-center mt-3">
@@ -33,15 +33,16 @@
         </div>
     </div>
     <div class="row-md-4 mt-2">
-        <span class="alert-success">Số ngày: @soNgay</span>
+        <span class="alert alert-info">Số ngày: @soNgay</span>
     </div>
+
 </div>
 
 <div class="container mt-4">
-    @if (startDate > endDate)
+    @if (endDate < startDate)
     {
         <div class="alert alert-danger">
-            <span>Ngày kết thúc phải lớn hơn ngày bắt đầu</span>
+            <span>Ngày bắt đầu phải nhỏ hơn ngày kết thúc</span>
         </div>
     }
     else if (filteredChiTietPhieu.Count <= 0)
@@ -50,19 +51,17 @@
             <span>Không tìm thấy sản phẩm</span>
         </div>
     }
-
     else
     {
 
         <table class="table-bordered table-striped table">
             <thead class="table-dark">
                 <tr>
-                    <th>Ngày nhập</th>
-                    <th>Số phiếu nhập</th>
-                    <th>Nhà cung cấp</th>
+                    <th>Ngày xuất</th>
+                    <th>Số phiếu xuất</th>
                     <th>Mã sản phẩm</th>
                     <th>Tên sản phẩm</th>
-                    <th>SL nhập</th>
+                    <th>SL xuất</th>
                     <th>Đơn giá</th>
                     <th>Trị giá</th>
                 </tr>
@@ -70,19 +69,17 @@
             <tbody>
                 @foreach (var item in filteredChiTietPhieu)
                 {
-                    var phieu = phieuNhap.FirstOrDefault(p => p.Id == item.Nhap_Kho_ID);
+                    var phieu = phieuXuat.FirstOrDefault(p => p.ID == item.Xuat_Kho_ID);
                     var sanpham = sanPhams.FirstOrDefault(p => p.Id == item.San_Pham_ID);
-                    var ncc = nhaCungCaps?.FirstOrDefault(n => n.Id == phieu?.NCC_ID);
                     var dvt = donViTinhs?.FirstOrDefault(d => d.Id == sanpham?.Don_Vi_Tinh_ID);
                     <tr>
-                        <td>@phieu?.Ngay_Nhap_Kho.ToString("dd/MM/yyyy")</td>
-                        <td>@phieu?.So_Phieu_Nhap_Kho</td>
-                        <td>@ncc?.Ten_NCC</td>
+                        <td>@phieu?.Ngay_Xuat_Kho.ToString("dd/MM/yyyy")</td>
+                        <td>@phieu?.So_Phieu_Xuat_Kho</td>
                         <td>@sanpham?.Ma_San_Pham</td>
                         <td>@sanpham?.Ten_San_Pham</td>
-                        <td>@item.SL_Nhap  @dvt?.Ten_Don_Vi_Tinh</td>
-                        <td>@item.Don_Gia_Nhap.ToString() VNĐ</td>
-                        <td>@((item.SL_Nhap * item.Don_Gia_Nhap).ToString() ) VNĐ</td>
+                        <td>@item.SL_Xuat  @dvt?.Ten_Don_Vi_Tinh</td>
+                        <td>@item.Don_Gia_Xuat.ToString() VNĐ</td>
+                        <td>@((item.SL_Xuat * item.Don_Gia_Xuat).ToString()) VNĐ</td>
                     </tr>
                 }
             </tbody>
@@ -95,34 +92,24 @@
 
 @code {
 
-    private List<NhapKho> phieuNhap= new();
-    private List<NhapKhoRaw> chiTietPhieu = new();
+    private List<XuatKho> phieuXuat = new();
+    private List<XuatKhoRaw> chiTietPhieu = new();
     private List<SanPham> sanPhams = new();
-    private List<NhaCungCap> nhaCungCaps = new();
     private List<DonViTinh> donViTinhs = new();
     private string errorMessage = "";
     private string ncc = "";
-    private List<NhapKhoRaw> filteredChiTietPhieu = new();
+    private List<XuatKhoRaw> filteredChiTietPhieu = new();
 
-
-    private DateTime? startDate ;
+    private DateTime? startDate;
     private DateTime? endDate;
     private string searchInput = "";
     private int soNgay;
 
-    protected override async Task OnInitializedAsync()
-    {
-        startDate = DateTime.Today.AddDays(-7);
-        endDate = DateTime.Today;
-        await LoadData();
-
-    }
-
     private async Task TinhNgay()
     {
-        if(endDate > startDate)
+        if (endDate > startDate)
         {
-            soNgay = (endDate - startDate)?.Days?? 0;
+            soNgay = (endDate - startDate)?.Days ?? 0;
         }
         else
         {
@@ -131,15 +118,25 @@
         StateHasChanged();
     }
 
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        var data = await xuatKhoRawService.GetAllAsync();
+        Console.WriteLine(">>> So dong trong XuatKhoRaw: " + data.Count);
+    }
+
     private async Task LoadData()
     {
         try
         {
-            await LoadPhieuNhapVaChiTiet();
+            startDate = DateTime.Today.AddDays(-7);
+            endDate = DateTime.Today;
+            await LoadphieuXuatVaChiTiet();
             filteredChiTietPhieu = chiTietPhieu;
             await Search();
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             errorMessage = $"Lỗi khi tải dữ liệu: {ex.Message}";
         }
@@ -149,12 +146,11 @@
 
         }
     }
-    private async Task LoadPhieuNhapVaChiTiet()
+    private async Task LoadphieuXuatVaChiTiet()
     {
-        phieuNhap = await NhapKhoService.GetAllAsync();
-        chiTietPhieu = await NhapKhoRawService.GetAllAsync();
+        phieuXuat = await xuatKhoService.GetAllAsync();
+        chiTietPhieu = await xuatKhoRawService.GetAllAsync();
         sanPhams = await SanPhamService.GetAllAsync();
-        nhaCungCaps = await NhaCungCapService.GetAllAsync();
         donViTinhs = await DonViTinhService.GetAllAsync();
     }
 
@@ -164,8 +160,7 @@
     }
 
     private async Task Search()
-    {   
-
+    {
         await TinhNgay();
         var query = chiTietPhieu.AsEnumerable();
 
@@ -174,16 +169,16 @@
         {
             query = query.Where(ct =>
         {
-            var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
-            return phieu != null && phieu.Ngay_Nhap_Kho.Date >= startDate.Value.Date;
+            var phieu = phieuXuat.FirstOrDefault(p => p.ID == ct.Xuat_Kho_ID);
+            return phieu != null && phieu.Ngay_Xuat_Kho.Date >= startDate.Value.Date;
         });
         }
         if (endDate.HasValue)
         {
             query = query.Where(ct =>
         {
-            var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
-            return phieu != null && phieu.Ngay_Nhap_Kho.Date <= endDate.Value.Date;
+            var phieu = phieuXuat.FirstOrDefault(p => p.ID == ct.Xuat_Kho_ID);
+            return phieu != null && phieu.Ngay_Xuat_Kho.Date <= endDate.Value.Date;
         });
         }
 
@@ -194,14 +189,14 @@
 
             query = query.Where(ct =>
         {
-        var phieu = phieuNhap.FirstOrDefault(p => p.Id == ct.Nhap_Kho_ID);
+            var phieu = phieuXuat.FirstOrDefault(p => p.ID == ct.Xuat_Kho_ID);
             var sp = sanPhams.FirstOrDefault(s => s.Id == ct.San_Pham_ID);
 
             bool matchPhieu = (
-                phieu.So_Phieu_Nhap_Kho?.ToLower().Contains(kw) ?? false
-            
+                phieu.So_Phieu_Xuat_Kho?.ToLower().Contains(kw) ?? false
+
             );
-            
+
             bool matchSp = sp != null && (
                 (sp.Ma_San_Pham?.ToLower().Contains(kw) ?? false) ||
                 (sp.Ten_San_Pham?.ToLower().Contains(kw) ?? false)

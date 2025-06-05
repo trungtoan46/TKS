@@ -1109,10 +1109,10 @@
             // Cập nhật giao diện ngay lập tức
             StateHasChanged();
 
-            // Ẩn thông báo thành công sau 3 giây (chạy background)
+            // Ẩn thông báo thành công sau 2 giây (chạy background)
             _ = Task.Run(async () =>
             {
-                await Task.Delay(3000);
+                await Task.Delay(2000);
                 chiTietSuccessMessage = "";
                 await InvokeAsync(StateHasChanged);
             });

@@ -29,6 +29,7 @@ builder.Services.AddScoped<INhapKhoRawService, TKS.Services.Implementations.Nhap
 builder.Services.AddScoped<IXNKNhapKhoService, TKS.Services.Implementations.XNKNhapKhoService>();
 builder.Services.AddScoped<IXuatKhoService, TKS.Services.Implementations.XuatKhoService>();
 builder.Services.AddScoped<IXuatKhoRawService, TKS.Services.Implementations.XuatKhoRawService>();
+builder.Services.AddScoped<IXNKXuatKho, TKS.Services.Implementations.XNKXuatKhoService>();
 
 var app = builder.Build();
 
